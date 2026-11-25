@@ -23,32 +23,35 @@ export function HeroPrologus() {
         if (idx === CHAPTERS.length - 1) {
           setVerifyStep('verified');
         }
-      }, 110 * (idx + 1));
+      }, 105 * (idx + 1));
     });
   };
 
   return (
     <section className="prologus" id="prologus">
       <div className="container prologus-stage-grid">
-        {/* Boxless monumental Naresh-inspired typography */}
         <div className="prologus-copy">
-          <p className="hero-salve">
-            Salve, eu sou <span className="hero-latin-whisper">· Ex silicio ad nubem</span>
-          </p>
+          <div className="hero-folio-sig">
+            <span className="hero-folio-ref">Fólio Prologi — UNIFEOB, Brasil</span>
+            <span className="hero-folio-rule" aria-hidden="true" />
+            <em className="hero-latin-whisper">Ex silicio ad nubem</em>
+          </div>
 
           <h1 className="hero-title">
             João
             <br />
-            <span className="hero-title-accent">Hélio</span>
+            <span className="hero-title-surname">Hélio</span>
           </h1>
 
           <p className="hero-subtitle">
-            Cibersegurança, IoT em C++, Redes &amp; Cloud · Ciência da Computação (UNIFEOB)
+            Estudante de Ciência da Computação dedicado à engenharia que atravessa a máquina inteira:
+            firmware determinístico em C++, dissecação estática de binários, redes corporativas Cisco
+            e custódia criptográfica de incidentes em Python e nuvem.
           </p>
 
           <div className="hero-actions">
             <a className="btn-codex btn-codex--primary" href="#tabula-3d">
-              Explorar Tabula 3D
+              Operar Tabula Romana 3D
             </a>
             <a
               className="btn-codex btn-codex--ghost"
@@ -56,40 +59,43 @@ export function HeroPrologus() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              GitHub @joaoheliodev
+              github.com/joaoheliodev
             </a>
           </div>
 
-          <div className="hero-seal-inline" aria-label="Assinatura SHA-256 do Codex">
-            <button type="button" className="btn-inline-rule" onClick={runVerify}>
-              Verificar SHA-256
-            </button>
+          <div className="hero-seal-ledger" aria-label="Assinatura SHA-256 do Codex">
+            <div className="hero-seal-meta">
+              <button type="button" className="editorial-link" onClick={runVerify}>
+                Conferir integridade SHA-256
+              </button>
 
-            <span
-              className={`seal-state ${
-                verifyStep === 'verified'
-                  ? 'seal-state--ok'
+              <span
+                className={`marginalia-stamp ${
+                  verifyStep === 'verified'
+                    ? 'marginalia-stamp--ok'
+                    : verifyStep === 'sweeping'
+                      ? 'marginalia-stamp--warn'
+                      : ''
+                }`}
+              >
+                {verifyStep === 'verified'
+                  ? 'Sigillum Integrum'
                   : verifyStep === 'sweeping'
-                    ? 'seal-state--warn'
-                    : ''
-              }`}
-            >
-              {verifyStep === 'verified'
-                ? 'SIGILLUM INTEGRUM'
-                : verifyStep === 'sweeping'
-                  ? 'VERIFICANDO...'
-                  : `${manifestoHash.slice(0, 12)}…`}
-            </span>
+                    ? 'Calculando digest…'
+                    : `sha256: ${manifestoHash.slice(0, 14)}…`}
+              </span>
+            </div>
 
-            <nav className="hero-roman-dots" aria-label="Capítulos verificados">
+            <nav className="hero-roman-seals" aria-label="Quatro partes do tratado">
               {CHAPTERS.map((ch, idx) => (
                 <a
                   key={ch.roman}
                   href={ch.href}
-                  className={`roman-dot ${idx < litCount ? 'is-verified' : ''}`}
+                  className={`roman-seal ${idx < litCount ? 'is-verified' : ''}`}
                   title={`Pars ${ch.roman} — ${ch.label}`}
                 >
-                  {ch.roman}
+                  <span className="roman-seal-num">{ch.roman}</span>
+                  <span className="roman-seal-lbl">{ch.label}</span>
                 </a>
               ))}
             </nav>
@@ -100,10 +106,9 @@ export function HeroPrologus() {
         <div className="prologus-canvas-window" />
       </div>
 
-      <a className="scroll-cue" href="#tabula-3d" aria-label="Rolar para a Tabula Lapidea 3D">
-        <span className="scroll-cue-mouse" aria-hidden="true">
-          <span className="scroll-cue-dot" />
-        </span>
+      <a className="plumb-cue" href="#tabula-3d" aria-label="Descer para a Tabula Romana 3D">
+        <span className="plumb-cue-label">Tabula Romana</span>
+        <span className="plumb-cue-line" aria-hidden="true" />
       </a>
     </section>
   );

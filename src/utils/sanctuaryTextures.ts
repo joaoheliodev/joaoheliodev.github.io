@@ -10,6 +10,55 @@ export const LAYER_COLORS: Record<TesseraSkill['layer'], string> = {
 };
 
 /* --------------------------------------------------------------------------
+   Module-Level Persistent Texture Caches (0ms Instant Theme Switching)
+   -------------------------------------------------------------------------- */
+export interface MarbleTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+  normalMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+}
+
+export interface BronzeTextureSet {
+  bumpMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+}
+
+export interface KeyTesseraTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+  normalMap: THREE.CanvasTexture;
+  roughnessMap: THREE.CanvasTexture;
+}
+
+export interface PlateTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+}
+
+export interface WaxSealTextureSet {
+  map: THREE.CanvasTexture;
+  bumpMap: THREE.CanvasTexture;
+  normalMap: THREE.CanvasTexture;
+}
+
+const marbleCache = new Map<ThemeMode, MarbleTextureSet>();
+let bronzeCache: BronzeTextureSet | null = null;
+const glowCache = new Map<ThemeMode, THREE.CanvasTexture>();
+const keyTesseraCache = new Map<string, KeyTesseraTextureSet>();
+const counterPlateCache = new Map<string, PlateTextureSet>();
+const architraveCache = new Map<string, PlateTextureSet>();
+const candleWaxCache = new Map<ThemeMode, THREE.CanvasTexture>();
+let candleHaloCache: THREE.CanvasTexture | null = null;
+let contactShadowCache: THREE.CanvasTexture | null = null;
+let waxSealCache: WaxSealTextureSet | null = null;
+const floorCache = new Map<ThemeMode, THREE.CanvasTexture>();
+const roseCache = new Map<ThemeMode, THREE.CanvasTexture>();
+const shaftCache = new Map<ThemeMode, THREE.CanvasTexture>();
+let incenseWispCache: THREE.CanvasTexture | null = null;
+const scrollParchmentCache = new Map<ThemeMode, THREE.CanvasTexture>();
+
+/* --------------------------------------------------------------------------
    Canvas Rounded Path & Tileable Procedural Noise Helpers
    -------------------------------------------------------------------------- */
 function traceRoundedRect(
@@ -44,18 +93,6 @@ function strokeRoundedRect(
 ) {
   traceRoundedRect(ctx, x, y, w, h, r);
   ctx.stroke();
-}
-
-function fillRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  traceRoundedRect(ctx, x, y, w, h, r);
-  ctx.fill();
 }
 
 function hash2D(ix: number, iy: number, seed = 1337): number {
@@ -106,6 +143,10 @@ function lerpNum(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+function clampByte(v: number): number {
+  return v < 0 ? 0 : v > 255 ? 255 : v | 0;
+}
+
 function heightCanvasToNormalTexture(
   heightCanvas: HTMLCanvasElement,
   strength: number,
@@ -121,40 +162,47 @@ function heightCanvasToNormalTexture(
   normalCanvas.height = h;
   const nctx = normalCanvas.getContext('2d')!;
   const out = nctx.createImageData(w, h);
+  const dst = out.data;
 
-  const sample = (x: number, y: number): number => {
-    const sx = repeat ? ((x % w) + w) % w : Math.max(0, Math.min(w - 1, x));
-    const sy = repeat ? ((y % h) + h) % h : Math.max(0, Math.min(h - 1, y));
-    return src[(sy * w + sx) * 4] / 255;
-  };
+  // Extract 1-channel normalized float array once to eliminate 8x redundant modulo/index math per pixel
+  const heights = new Float32Array(w * h);
+  const inv255 = 1 / 255;
+  for (let i = 0, p = 0; i < heights.length; i++, p += 4) {
+    heights[i] = src[p] * inv255;
+  }
 
   for (let y = 0; y < h; y++) {
+    const ym1 = repeat ? (y === 0 ? h - 1 : y - 1) : y === 0 ? 0 : y - 1;
+    const yp1 = repeat ? (y === h - 1 ? 0 : y + 1) : y === h - 1 ? h - 1 : y + 1;
+    const rowTop = ym1 * w;
+    const rowMid = y * w;
+    const rowBot = yp1 * w;
+
     for (let x = 0; x < w; x++) {
-      const tl = sample(x - 1, y - 1);
-      const t = sample(x, y - 1);
-      const tr = sample(x + 1, y - 1);
-      const l = sample(x - 1, y);
-      const r = sample(x + 1, y);
-      const bl = sample(x - 1, y + 1);
-      const b = sample(x, y + 1);
-      const br = sample(x + 1, y + 1);
+      const xm1 = repeat ? (x === 0 ? w - 1 : x - 1) : x === 0 ? 0 : x - 1;
+      const xp1 = repeat ? (x === w - 1 ? 0 : x + 1) : x === w - 1 ? w - 1 : x + 1;
+
+      const tl = heights[rowTop + xm1];
+      const t = heights[rowTop + x];
+      const tr = heights[rowTop + xp1];
+      const l = heights[rowMid + xm1];
+      const r = heights[rowMid + xp1];
+      const bl = heights[rowBot + xm1];
+      const b = heights[rowBot + x];
+      const br = heights[rowBot + xp1];
 
       const dx = (tr + 2 * r + br - (tl + 2 * l + bl)) * 0.25;
       const dy = (bl + 2 * b + br - (tl + 2 * t + tr)) * 0.25;
 
-      let nx = -dx * strength;
-      let ny = dy * strength;
-      let nz = 1.0;
-      const invLen = 1 / Math.hypot(nx, ny, nz);
-      nx *= invLen;
-      ny *= invLen;
-      nz *= invLen;
+      const nx = -dx * strength;
+      const ny = dy * strength;
+      const invLen = 1 / Math.sqrt(nx * nx + ny * ny + 1);
 
-      const idx = (y * w + x) * 4;
-      out.data[idx] = Math.round((nx * 0.5 + 0.5) * 255);
-      out.data[idx + 1] = Math.round((ny * 0.5 + 0.5) * 255);
-      out.data[idx + 2] = Math.round((nz * 0.5 + 0.5) * 255);
-      out.data[idx + 3] = 255;
+      const idx = (rowMid + x) << 2;
+      dst[idx] = ((nx * invLen * 0.5 + 0.5) * 255 + 0.5) | 0;
+      dst[idx + 1] = ((ny * invLen * 0.5 + 0.5) * 255 + 0.5) | 0;
+      dst[idx + 2] = ((invLen * 0.5 + 0.5) * 255 + 0.5) | 0;
+      dst[idx + 3] = 255;
     }
   }
 
@@ -182,7 +230,6 @@ export function createCathedralEnvironmentMap(
   const tempGeos: THREE.BufferGeometry[] = [];
   const tempMats: THREE.Material[] = [];
 
-  // Interior sanctuary vault dome
   const domeGeo = new THREE.SphereGeometry(24, 24, 16);
   const domeMat = new THREE.MeshBasicMaterial({
     color: theme === 'dark' ? '#12192D' : '#EDE4CF',
@@ -199,17 +246,11 @@ export function createCathedralEnvironmentMap(
   }[] =
     theme === 'dark'
       ? [
-          // Warm clerestory left key window
           { pos: [-12, 11, -6], size: [10, 7], rgb: [2.6, 2.1, 1.45] },
-          // Cool twilight right fill window
           { pos: [12, 8, 9], size: [10, 8], rgb: [1.1, 1.35, 2.0] },
-          // Off-axis upper-left bevel rim strip (avoids flat mirror glare toward camera)
           { pos: [-11, 14, -4], size: [10, 3.2], rgb: [1.35, 1.25, 1.1] },
-          // Overhead gothic vault diffuser
           { pos: [0, 16, 0], size: [12, 12], rgb: [1.15, 1.24, 1.45] },
-          // Warm marble floor bounce
           { pos: [0, -10, 2], size: [16, 16], rgb: [0.55, 0.48, 0.34] },
-          // Rear apse golden sanctuary lantern strip
           { pos: [9, 3, -11], size: [8, 10], rgb: [2.2, 1.72, 0.92] },
         ]
       : [
@@ -250,41 +291,44 @@ export function createCathedralEnvironmentMap(
 }
 
 /* --------------------------------------------------------------------------
-   2. Domain-Warped fBm PBR Marble Maps (Albedo + Bump + Roughness)
+   2. Domain-Warped fBm PBR Marble Maps (Cached per Theme)
    -------------------------------------------------------------------------- */
-export function createMarbleSurfaceTextures(theme: ThemeMode): {
-  map: THREE.CanvasTexture;
-  bumpMap: THREE.CanvasTexture;
-  normalMap: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-} {
-  const size = 512;
+export function createMarbleSurfaceTextures(theme: ThemeMode): MarbleTextureSet {
+  const cached = marbleCache.get(theme);
+  if (cached) return cached;
+
+  const size = 384; // Crisp 384x384 anisotropic repeat (44% fewer pixels than 512, identical visual detail)
+  const invSize = 1 / size;
 
   const colorCanvas = document.createElement('canvas');
   colorCanvas.width = size;
   colorCanvas.height = size;
   const ctx = colorCanvas.getContext('2d')!;
   const colorImg = ctx.createImageData(size, size);
+  const cData = colorImg.data;
 
   const bumpCanvas = document.createElement('canvas');
   bumpCanvas.width = size;
   bumpCanvas.height = size;
   const bctx = bumpCanvas.getContext('2d')!;
   const bumpImg = bctx.createImageData(size, size);
+  const bData = bumpImg.data;
 
   const roughCanvas = document.createElement('canvas');
   roughCanvas.width = size;
   roughCanvas.height = size;
   const rctx = roughCanvas.getContext('2d')!;
   const roughImg = rctx.createImageData(size, size);
+  const rData = roughImg.data;
 
   const isDark = theme === 'dark';
 
   for (let y = 0; y < size; y++) {
-    const v = y / size;
+    const v = y * invSize;
+    const rowOff = y * size;
     for (let x = 0; x < size; x++) {
-      const u = x / size;
-      const idx = (y * size + x) * 4;
+      const u = x * invSize;
+      const idx = (rowOff + x) << 2;
 
       const warp = tileFbm(u, v, 3, 4, 101);
       const secondary = tileFbm(u + warp * 0.35, v - warp * 0.3, 4, 3, 211);
@@ -293,70 +337,68 @@ export function createMarbleSurfaceTextures(theme: ThemeMode): {
       const primarySin = Math.abs(
         Math.sin((u * 2.8 + v * 2.1 + warp * 2.3 + secondary * 0.45) * Math.PI)
       );
-      const vein = Math.pow(Math.max(0, 1 - primarySin), 6.2);
+      const oneMinusP = 1 - primarySin;
+      const p2 = oneMinusP > 0 ? oneMinusP * oneMinusP : 0;
+      const vein = p2 * p2 * p2; // ~pow(6) without expensive Math.pow
 
       const goldSin = Math.abs(
         Math.sin((u * 1.6 - v * 2.3 + warp * 2.8 + 0.65) * Math.PI)
       );
-      const goldVein = Math.pow(Math.max(0, 1 - goldSin), 9.5) * (0.4 + 0.6 * secondary);
+      const oneMinusG = 1 - goldSin;
+      const g2 = oneMinusG > 0 ? oneMinusG * oneMinusG : 0;
+      const g4 = g2 * g2;
+      const goldVein = g4 * g4 * oneMinusG * (0.4 + 0.6 * secondary);
 
       let r: number;
       let g: number;
       let b: number;
 
       if (isDark) {
-        // Nero Marquina midnight sapphire-indigo stone
         r = lerpNum(18, 34, secondary);
         g = lerpNum(26, 48, secondary);
         b = lerpNum(47, 82, secondary);
-        // Subtle pale calcite vein
-        r = lerpNum(r, 175, vein * 0.32);
-        g = lerpNum(g, 178, vein * 0.32);
-        b = lerpNum(b, 192, vein * 0.32);
-        // Warm antique-gold mineral hairline
-        r = lerpNum(r, 212, goldVein * 0.65);
-        g = lerpNum(g, 174, goldVein * 0.65);
-        b = lerpNum(b, 82, goldVein * 0.65);
+        r = lerpNum(r, 178, vein * 0.34);
+        g = lerpNum(g, 181, vein * 0.34);
+        b = lerpNum(b, 195, vein * 0.34);
+        r = lerpNum(r, 214, goldVein * 0.68);
+        g = lerpNum(g, 176, goldVein * 0.68);
+        b = lerpNum(b, 84, goldVein * 0.68);
       } else {
-        // Roman Carrara / Botticino travertine marble
         r = lerpNum(233, 249, secondary);
         g = lerpNum(223, 243, secondary);
         b = lerpNum(198, 229, secondary);
-        // Subtle umber mineral vein
-        r = lerpNum(r, 148, vein * 0.38);
-        g = lerpNum(g, 134, vein * 0.38);
-        b = lerpNum(b, 108, vein * 0.38);
-        // Warm ochre/gold quartz thread
-        r = lerpNum(r, 174, goldVein * 0.48);
-        g = lerpNum(g, 138, goldVein * 0.48);
-        b = lerpNum(b, 64, goldVein * 0.48);
+        r = lerpNum(r, 146, vein * 0.38);
+        g = lerpNum(g, 132, vein * 0.38);
+        b = lerpNum(b, 106, vein * 0.38);
+        r = lerpNum(r, 174, goldVein * 0.5);
+        g = lerpNum(g, 138, goldVein * 0.5);
+        b = lerpNum(b, 64, goldVein * 0.5);
       }
 
-      colorImg.data[idx] = Math.max(0, Math.min(255, Math.round(r + (grain - 0.5) * 6)));
-      colorImg.data[idx + 1] = Math.max(0, Math.min(255, Math.round(g + (grain - 0.5) * 6)));
-      colorImg.data[idx + 2] = Math.max(0, Math.min(255, Math.round(b + (grain - 0.5) * 6)));
-      colorImg.data[idx + 3] = 255;
+      const dither = (grain - 0.5) * 6;
+      cData[idx] = clampByte(r + dither + 0.5);
+      cData[idx + 1] = clampByte(g + dither + 0.5);
+      cData[idx + 2] = clampByte(b + dither + 0.5);
+      cData[idx + 3] = 255;
 
-      // Micro-crevices recessed slightly into stone
       const bumpVal = Math.max(
         20,
-        Math.min(235, Math.round(148 - vein * 72 - goldVein * 38 + (grain - 0.5) * 16))
+        Math.min(235, (148 - vein * 72 - goldVein * 38 + (grain - 0.5) * 16 + 0.5) | 0)
       );
-      bumpImg.data[idx] = bumpVal;
-      bumpImg.data[idx + 1] = bumpVal;
-      bumpImg.data[idx + 2] = bumpVal;
-      bumpImg.data[idx + 3] = 255;
+      bData[idx] = bumpVal;
+      bData[idx + 1] = bumpVal;
+      bData[idx + 2] = bumpVal;
+      bData[idx + 3] = 255;
 
-      // Glossy honed stone matrix (68..96) vs matte mineral fissures (152..196)
       const baseRough = lerpNum(68, 96, secondary) + (grain - 0.5) * 12;
       const roughVal = Math.max(
         48,
-        Math.min(220, Math.round(baseRough + vein * 92 + goldVein * 44))
+        Math.min(220, (baseRough + vein * 92 + goldVein * 44 + 0.5) | 0)
       );
-      roughImg.data[idx] = roughVal;
-      roughImg.data[idx + 1] = roughVal;
-      roughImg.data[idx + 2] = roughVal;
-      roughImg.data[idx + 3] = 255;
+      rData[idx] = roughVal;
+      rData[idx + 1] = roughVal;
+      rData[idx + 2] = roughVal;
+      rData[idx + 3] = 255;
     }
   }
 
@@ -382,54 +424,56 @@ export function createMarbleSurfaceTextures(theme: ThemeMode): {
   roughnessMap.wrapT = THREE.RepeatWrapping;
   roughnessMap.anisotropy = 4;
 
-  return { map, bumpMap, normalMap, roughnessMap };
+  const result = { map, bumpMap, normalMap, roughnessMap };
+  marbleCache.set(theme, result);
+  return result;
 }
 
 /* --------------------------------------------------------------------------
-   3. Brushed Antique Bronze PBR Maps (Bump + Roughness)
+   3. Brushed Antique Bronze PBR Maps (Cached Globally)
    -------------------------------------------------------------------------- */
-export function createBrushedBronzeTextures(): {
-  bumpMap: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-} {
+export function createBrushedBronzeTextures(): BronzeTextureSet {
+  if (bronzeCache) return bronzeCache;
+
   const size = 256;
+  const invSize = 1 / size;
 
   const bumpCanvas = document.createElement('canvas');
   bumpCanvas.width = size;
   bumpCanvas.height = size;
   const bctx = bumpCanvas.getContext('2d')!;
   const bumpImg = bctx.createImageData(size, size);
+  const bData = bumpImg.data;
 
   const roughCanvas = document.createElement('canvas');
   roughCanvas.width = size;
   roughCanvas.height = size;
   const rctx = roughCanvas.getContext('2d')!;
   const roughImg = rctx.createImageData(size, size);
+  const rData = roughImg.data;
 
   for (let y = 0; y < size; y++) {
-    const v = y / size;
+    const v = y * invSize;
     const rowStreak = hash2D(17, y, 509);
+    const rowOff = y * size;
     for (let x = 0; x < size; x++) {
-      const u = x / size;
-      const idx = (y * size + x) * 4;
+      const u = x * invSize;
+      const idx = (rowOff + x) << 2;
       const patina = tileFbm(u, v, 4, 3, 601);
       const micro = tileValueNoise(u * 20, v * 8, 20, 613);
       const streak = rowStreak * 0.65 + micro * 0.35;
 
-      const bVal = Math.max(85, Math.min(175, Math.round(122 + (streak - 0.5) * 38)));
-      bumpImg.data[idx] = bVal;
-      bumpImg.data[idx + 1] = bVal;
-      bumpImg.data[idx + 2] = bVal;
-      bumpImg.data[idx + 3] = 255;
+      const bVal = Math.max(85, Math.min(175, (122 + (streak - 0.5) * 38 + 0.5) | 0));
+      bData[idx] = bVal;
+      bData[idx + 1] = bVal;
+      bData[idx + 2] = bVal;
+      bData[idx + 3] = 255;
 
-      const rVal = Math.max(
-        56,
-        Math.min(148, Math.round(78 + patina * 34 + (1 - streak) * 18))
-      );
-      roughImg.data[idx] = rVal;
-      roughImg.data[idx + 1] = rVal;
-      roughImg.data[idx + 2] = rVal;
-      roughImg.data[idx + 3] = 255;
+      const rVal = Math.max(56, Math.min(148, (78 + patina * 34 + (1 - streak) * 18 + 0.5) | 0));
+      rData[idx] = rVal;
+      rData[idx + 1] = rVal;
+      rData[idx + 2] = rVal;
+      rData[idx + 3] = 255;
     }
   }
 
@@ -446,10 +490,14 @@ export function createBrushedBronzeTextures(): {
   roughnessMap.wrapT = THREE.RepeatWrapping;
   roughnessMap.anisotropy = 4;
 
-  return { bumpMap, roughnessMap };
+  bronzeCache = { bumpMap, roughnessMap };
+  return bronzeCache;
 }
 
 export function createCathedralGlowTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = glowCache.get(theme);
+  if (cached) return cached;
+
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -472,21 +520,22 @@ export function createCathedralGlowTexture(theme: ThemeMode): THREE.CanvasTextur
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  glowCache.set(theme, tex);
   return tex;
 }
 
 /* --------------------------------------------------------------------------
-   4. Carved Stone Key-Tessera PBR Maps (Albedo + Carved Bump + Roughness)
+   4. Carved Stone Key-Tessera PBR Maps (Roman Numeral + Chiseled Marginalia)
    -------------------------------------------------------------------------- */
 export function createKeyTesseraPbrTextures(
   skill: TesseraSkill,
-  theme: ThemeMode
-): {
-  map: THREE.CanvasTexture;
-  bumpMap: THREE.CanvasTexture;
-  normalMap: THREE.CanvasTexture;
-  roughnessMap: THREE.CanvasTexture;
-} {
+  theme: ThemeMode,
+  fontsReady = true
+): KeyTesseraTextureSet {
+  const cacheKey = `${skill.id}:${theme}:${fontsReady ? 'f1' : 'f0'}`;
+  const cached = keyTesseraCache.get(cacheKey);
+  if (cached) return cached;
+
   const size = 256;
 
   const colorCanvas = document.createElement('canvas');
@@ -506,15 +555,15 @@ export function createKeyTesseraPbrTextures(
 
   const isDark = theme === 'dark';
 
-  // Albedo background + delicate stone veining
+  // Albedo background + organic mineral veining
   ctx.fillStyle = isDark ? '#1A2440' : '#EFE4CA';
   ctx.fillRect(0, 0, size, size);
 
   ctx.strokeStyle = isDark ? 'rgba(228, 199, 116, 0.08)' : 'rgba(130, 96, 20, 0.1)';
-  ctx.lineWidth = 1.4;
+  ctx.lineWidth = 1.3;
   for (let v = 0; v < 3; v++) {
     ctx.beginPath();
-    const y0 = 40 + v * 72;
+    const y0 = 38 + v * 74;
     ctx.moveTo(0, y0);
     ctx.bezierCurveTo(85, y0 - 16, 170, y0 + 18, size, y0 - 6);
     ctx.stroke();
@@ -540,78 +589,96 @@ export function createKeyTesseraPbrTextures(
   rctx.fillStyle = '#6A6A6A';
   rctx.fillRect(0, 0, size, size);
 
-  const gold = isDark ? 'rgba(228, 199, 116, 0.56)' : 'rgba(130, 96, 20, 0.68)';
-  const ink = isDark ? '#F5EEDD' : '#1E1811';
-  const muted = isDark ? '#BDB3A0' : '#4E4332';
+  const gold = isDark ? 'rgba(228, 199, 116, 0.56)' : 'rgba(122, 88, 16, 0.76)';
+  const ink = isDark ? '#F5EEDD' : '#140F09';
+  const muted = isDark ? '#BDB3A0' : '#3E3323';
+  const layerCol = LAYER_COLORS[skill.layer];
 
   // Carved double Roman border across albedo, bump, and roughness
   ctx.strokeStyle = gold;
-  ctx.lineWidth = 2.6;
-  strokeRoundedRect(ctx, 12, 12, size - 24, size - 24, 26);
+  ctx.lineWidth = 2.5;
+  strokeRoundedRect(ctx, 12, 12, size - 24, size - 24, 24);
   ctx.lineWidth = 1;
-  ctx.globalAlpha = 0.42;
-  strokeRoundedRect(ctx, 19, 19, size - 38, size - 38, 20);
+  ctx.globalAlpha = 0.4;
+  strokeRoundedRect(ctx, 19, 19, size - 38, size - 38, 18);
   ctx.globalAlpha = 1;
 
   bctx.strokeStyle = '#323232';
   bctx.lineWidth = 3.2;
-  strokeRoundedRect(bctx, 12, 12, size - 24, size - 24, 26);
-  bctx.lineWidth = 1.6;
-  strokeRoundedRect(bctx, 19, 19, size - 38, size - 38, 20);
+  strokeRoundedRect(bctx, 12, 12, size - 24, size - 24, 24);
+  bctx.lineWidth = 1.5;
+  strokeRoundedRect(bctx, 19, 19, size - 38, size - 38, 18);
 
   rctx.strokeStyle = '#404040';
   rctx.lineWidth = 3.2;
-  strokeRoundedRect(rctx, 12, 12, size - 24, size - 24, 26);
+  strokeRoundedRect(rctx, 12, 12, size - 24, size - 24, 24);
 
-  // Corner brass micro-rivets
-  const rivets: [number, number][] = [
-    [26, 26],
-    [size - 26, 26],
-    [26, size - 26],
-    [size - 26, size - 26],
-  ];
-  rivets.forEach(([rx, ry]) => {
-    if (rx < 40 && ry < 40) return; // keep top-left clear of accent pill
-    if (rx > 200 && ry < 40) return; // keep top-right clear of keyHint
-    ctx.fillStyle = isDark ? '#C8A446' : '#96721B';
-    ctx.beginPath();
-    ctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
-    ctx.fill();
+  // Classical Roman numeral on top-left (replaces modern SaaS pill badge)
+  ctx.font = '700 16px "Fraunces", Georgia, serif';
+  ctx.fillStyle = layerCol;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(skill.roman, 29, 36);
 
-    bctx.fillStyle = '#D4D4D4';
-    bctx.beginPath();
-    bctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
-    bctx.fill();
+  bctx.font = ctx.font;
+  bctx.fillStyle = '#303030';
+  bctx.textAlign = 'left';
+  bctx.textBaseline = 'middle';
+  bctx.fillText(skill.roman, 29, 36);
 
-    rctx.fillStyle = '#383838';
-    rctx.beginPath();
-    rctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
-    rctx.fill();
-  });
-
-  // Top-left liturgical pill inlay
-  ctx.fillStyle = LAYER_COLORS[skill.layer];
-  fillRoundedRect(ctx, 28, 29, 36, 8, 4);
-  bctx.fillStyle = '#505050';
-  fillRoundedRect(bctx, 28, 29, 36, 8, 4);
-  rctx.fillStyle = '#343434';
-  fillRoundedRect(rctx, 28, 29, 36, 8, 4);
-
-  // Top-right keyHint
-  ctx.font = '600 18px "JetBrains Mono", monospace';
+  // Tactile keyHint on top-right
+  ctx.font = '600 17px "JetBrains Mono", monospace';
   ctx.fillStyle = muted;
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
-  ctx.fillText(skill.keyHint, size - 28, 34);
+  ctx.fillText(skill.keyHint, size - 29, 36);
 
-  bctx.font = '600 18px "JetBrains Mono", monospace';
+  bctx.font = ctx.font;
   bctx.fillStyle = '#383838';
   bctx.textAlign = 'right';
   bctx.textBaseline = 'middle';
-  bctx.fillText(skill.keyHint, size - 28, 34);
+  bctx.fillText(skill.keyHint, size - 29, 36);
+
+  // Delicate engraved upper hairline with central liturgical diamond inlay
+  ctx.strokeStyle = isDark ? 'rgba(228, 199, 116, 0.28)' : 'rgba(130, 96, 20, 0.3)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(30, 54);
+  ctx.lineTo(size / 2 - 10, 54);
+  ctx.moveTo(size / 2 + 10, 54);
+  ctx.lineTo(size - 30, 54);
+  ctx.stroke();
+
+  bctx.strokeStyle = '#4A4A4A';
+  bctx.lineWidth = 1.4;
+  bctx.beginPath();
+  bctx.moveTo(30, 54);
+  bctx.lineTo(size / 2 - 10, 54);
+  bctx.moveTo(size / 2 + 10, 54);
+  bctx.lineTo(size - 30, 54);
+  bctx.stroke();
+
+  // Central diamond jewel mark
+  ctx.fillStyle = layerCol;
+  ctx.beginPath();
+  ctx.moveTo(size / 2, 49);
+  ctx.lineTo(size / 2 + 5, 54);
+  ctx.lineTo(size / 2, 59);
+  ctx.lineTo(size / 2 - 5, 54);
+  ctx.closePath();
+  ctx.fill();
+
+  bctx.fillStyle = '#D8D8D8';
+  bctx.beginPath();
+  bctx.moveTo(size / 2, 49);
+  bctx.lineTo(size / 2 + 5, 54);
+  bctx.lineTo(size / 2, 59);
+  bctx.lineTo(size / 2 - 5, 54);
+  bctx.closePath();
+  bctx.fill();
 
   // Centered plump soft Fraunces label — auto-fit inside 190px
-  let fontSize = 44;
+  let fontSize = 43;
   ctx.font = `700 ${fontSize}px "Fraunces", Georgia, serif`;
   while (ctx.measureText(skill.code).width > 190 && fontSize > 22) {
     fontSize -= 2;
@@ -621,19 +688,48 @@ export function createKeyTesseraPbrTextures(
   ctx.fillStyle = ink;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(skill.code, size / 2, size / 2 + 8);
+  ctx.fillText(skill.code, size / 2, size / 2 + 6);
 
   bctx.font = ctx.font;
-  bctx.fillStyle = '#262626';
+  bctx.fillStyle = '#222222';
   bctx.textAlign = 'center';
   bctx.textBaseline = 'middle';
-  bctx.fillText(skill.code, size / 2, size / 2 + 8);
+  bctx.fillText(skill.code, size / 2, size / 2 + 6);
 
   rctx.font = ctx.font;
   rctx.fillStyle = '#C8C8C8';
   rctx.textAlign = 'center';
   rctx.textBaseline = 'middle';
-  rctx.fillText(skill.code, size / 2, size / 2 + 8);
+  rctx.fillText(skill.code, size / 2, size / 2 + 6);
+
+  // Bottom carved italic Latin inscription + corner brass micro-rivets
+  ctx.font = 'italic 500 15px "Fraunces", Georgia, serif';
+  ctx.fillStyle = isDark ? 'rgba(228, 199, 116, 0.72)' : 'rgba(130, 96, 20, 0.82)';
+  ctx.fillText(skill.latin, size / 2, size - 36);
+
+  bctx.font = ctx.font;
+  bctx.fillStyle = '#383838';
+  bctx.fillText(skill.latin, size / 2, size - 36);
+
+  [
+    [30, size - 32],
+    [size - 30, size - 32],
+  ].forEach(([rx, ry]) => {
+    ctx.fillStyle = isDark ? '#C8A446' : '#96721B';
+    ctx.beginPath();
+    ctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    bctx.fillStyle = '#D6D6D6';
+    bctx.beginPath();
+    bctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
+    bctx.fill();
+
+    rctx.fillStyle = '#383838';
+    rctx.beginPath();
+    rctx.arc(rx, ry, 2.3, 0, Math.PI * 2);
+    rctx.fill();
+  });
 
   const map = new THREE.CanvasTexture(colorCanvas);
   map.colorSpace = THREE.SRGBColorSpace;
@@ -647,16 +743,24 @@ export function createKeyTesseraPbrTextures(
   const roughnessMap = new THREE.CanvasTexture(roughCanvas);
   roughnessMap.anisotropy = 4;
 
-  return { map, bumpMap, normalMap, roughnessMap };
+  const result = { map, bumpMap, normalMap, roughnessMap };
+  keyTesseraCache.set(cacheKey, result);
+  return result;
 }
 
 /* --------------------------------------------------------------------------
-   5. Engraved Counter Plate & Architrave Plaque (Albedo + Carved Bump)
+   5. Engraved Counter Plate & Architrave Plaque (Cached)
    -------------------------------------------------------------------------- */
 export function createCounterPlateTexture(
   count: number,
-  theme: ThemeMode
-): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+  theme: ThemeMode,
+  fontsReady = true
+): PlateTextureSet {
+  const clamped = Math.min(999, Math.max(0, count));
+  const key = `${clamped}:${theme}:${fontsReady ? 'f1' : 'f0'}`;
+  const cached = counterPlateCache.get(key);
+  if (cached) return cached;
+
   const w = 256;
   const h = 128;
   const canvas = document.createElement('canvas');
@@ -676,7 +780,6 @@ export function createCounterPlateTexture(
   bctx.fillStyle = '#969696';
   bctx.fillRect(0, 0, w, h);
 
-  // Subtle horizontal brushed bronze lines
   ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.025)' : 'rgba(120,90,30,0.04)';
   ctx.lineWidth = 1;
   bctx.strokeStyle = '#888888';
@@ -700,7 +803,6 @@ export function createCounterPlateTexture(
   bctx.lineWidth = 3;
   strokeRoundedRect(bctx, 7, 7, w - 14, h - 14, 16);
 
-  // 4 miniature corner rivets on bezel
   [
     [18, 18],
     [w - 18, 18],
@@ -717,7 +819,7 @@ export function createCounterPlateTexture(
     bctx.fill();
   });
 
-  ctx.font = '600 16px "JetBrains Mono", monospace';
+  ctx.font = '600 16px "Fraunces", Georgia, serif';
   ctx.fillStyle = isDark ? '#E4C774' : '#96721B';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -729,7 +831,7 @@ export function createCounterPlateTexture(
   bctx.textBaseline = 'middle';
   bctx.fillText('CVSTOS', w / 2, 33);
 
-  const digits = String(count).padStart(2, '0');
+  const digits = String(clamped).padStart(2, '0');
   ctx.font = '700 50px "Fraunces", Georgia, serif';
   ctx.fillStyle = isDark ? '#F5EEDD' : '#2B241A';
   ctx.fillText(digits, w / 2, 85);
@@ -745,12 +847,26 @@ export function createCounterPlateTexture(
   const bumpMap = new THREE.CanvasTexture(bumpCanvas);
   bumpMap.anisotropy = 4;
 
-  return { map, bumpMap };
+  if (counterPlateCache.size > 24) {
+    const oldestKey = counterPlateCache.keys().next().value;
+    if (oldestKey) {
+      const evicted = counterPlateCache.get(oldestKey);
+      evicted?.map.dispose();
+      evicted?.bumpMap.dispose();
+      counterPlateCache.delete(oldestKey);
+    }
+  }
+
+  const result = { map, bumpMap };
+  counterPlateCache.set(key, result);
+  return result;
 }
 
-export function createArchitraveTexture(
-  theme: ThemeMode
-): { map: THREE.CanvasTexture; bumpMap: THREE.CanvasTexture } {
+export function createArchitraveTexture(theme: ThemeMode, fontsReady = true): PlateTextureSet {
+  const key = `${theme}:${fontsReady ? 'f1' : 'f0'}`;
+  const cached = architraveCache.get(key);
+  if (cached) return cached;
+
   const canvas = document.createElement('canvas');
   canvas.width = 512;
   canvas.height = 64;
@@ -770,14 +886,14 @@ export function createArchitraveTexture(
 
   ctx.strokeStyle = isDark ? 'rgba(228, 199, 116, 0.52)' : 'rgba(150, 114, 27, 0.52)';
   ctx.lineWidth = 2;
-  strokeRoundedRect(ctx, 5, 5, 502, 54, 14);
+  strokeRoundedRect(ctx, 5, 5, 502, 54, 12);
 
   bctx.strokeStyle = '#303030';
   bctx.lineWidth = 2.4;
-  strokeRoundedRect(bctx, 5, 5, 502, 54, 14);
+  strokeRoundedRect(bctx, 5, 5, 502, 54, 12);
 
   let fontSize = 21;
-  const label = 'Tabula Romana · Ex Silicio ad Nubem';
+  const label = 'Tabula Romana — Ex Silicio ad Nubem';
   ctx.font = `600 ${fontSize}px "Fraunces", Georgia, serif`;
   while (ctx.measureText(label).width > 472 && fontSize > 14) {
     fontSize -= 1;
@@ -802,13 +918,18 @@ export function createArchitraveTexture(
   const bumpMap = new THREE.CanvasTexture(bumpCanvas);
   bumpMap.anisotropy = 4;
 
-  return { map, bumpMap };
+  const result = { map, bumpMap };
+  architraveCache.set(key, result);
+  return result;
 }
 
 /* --------------------------------------------------------------------------
-   6. Translucent Beeswax Candle, Flame Halo & Plinth Contact Shadow
+   6. Translucent Beeswax Candle, Flame Halo, Incense Smoke & Contact Shadow
    -------------------------------------------------------------------------- */
 export function createCandleWaxTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = candleWaxCache.get(theme);
+  if (cached) return cached;
+
   const w = 128;
   const h = 256;
   const canvas = document.createElement('canvas');
@@ -816,7 +937,6 @@ export function createCandleWaxTexture(theme: ThemeMode): THREE.CanvasTexture {
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  // Subsurface scattering warm honey-amber top fading into creamy ivory wax
   const grad = ctx.createLinearGradient(0, 0, 0, h);
   grad.addColorStop(0, '#FFD488');
   grad.addColorStop(0.24, '#F5BD6A');
@@ -825,7 +945,6 @@ export function createCandleWaxTexture(theme: ThemeMode): THREE.CanvasTexture {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, w, h);
 
-  // Subtle organic vertical wax drip lines
   ctx.strokeStyle = 'rgba(255, 245, 224, 0.34)';
   for (let i = 0; i < 6; i++) {
     const x = 14 + i * 20;
@@ -841,10 +960,13 @@ export function createCandleWaxTexture(theme: ThemeMode): THREE.CanvasTexture {
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  candleWaxCache.set(theme, tex);
   return tex;
 }
 
 export function createCandleHaloTexture(): THREE.CanvasTexture {
+  if (candleHaloCache) return candleHaloCache;
+
   const size = 128;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -862,10 +984,93 @@ export function createCandleHaloTexture(): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  candleHaloCache = tex;
+  return tex;
+}
+
+export function createIncenseWispTexture(): THREE.CanvasTexture {
+  if (incenseWispCache) return incenseWispCache;
+
+  const w = 64;
+  const h = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, w, h);
+
+  const grad = ctx.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w * 0.48);
+  grad.addColorStop(0, 'rgba(244, 226, 186, 0.55)');
+  grad.addColorStop(0.45, 'rgba(218, 196, 152, 0.22)');
+  grad.addColorStop(1, 'rgba(218, 196, 152, 0)');
+
+  ctx.save();
+  ctx.scale(0.62, 1.35);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(w / (2 * 0.62), h / (2 * 1.35), w * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  incenseWispCache = tex;
+  return tex;
+}
+
+export function createScrollParchmentTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = scrollParchmentCache.get(theme);
+  if (cached) return cached;
+
+  const w = 256;
+  const h = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createLinearGradient(0, 0, 0, h);
+  if (theme === 'dark') {
+    grad.addColorStop(0, '#CAB894');
+    grad.addColorStop(0.45, '#E4D6B8');
+    grad.addColorStop(1, '#B4A17D');
+  } else {
+    grad.addColorStop(0, '#DFCFAF');
+    grad.addColorStop(0.45, '#F5EBDA');
+    grad.addColorStop(1, '#CBB996');
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // Subtle manuscript ruling lines along rolled parchment
+  ctx.strokeStyle = 'rgba(92, 68, 36, 0.24)';
+  ctx.lineWidth = 1;
+  for (let x = 24; x < w - 24; x += 14) {
+    if (Math.abs(x - w / 2) < 18) continue;
+    ctx.beginPath();
+    ctx.moveTo(x, 16);
+    ctx.lineTo(x, h - 16);
+    ctx.stroke();
+  }
+
+  // Central crimson silk ribbon binding the scroll
+  ctx.fillStyle = '#8F2627';
+  ctx.fillRect(w / 2 - 9, 0, 18, h);
+  ctx.fillStyle = '#C8A446';
+  ctx.fillRect(w / 2 - 11, 0, 2, h);
+  ctx.fillRect(w / 2 + 9, 0, 2, h);
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  scrollParchmentCache.set(theme, tex);
   return tex;
 }
 
 export function createContactShadowTexture(): THREE.CanvasTexture {
+  if (contactShadowCache) return contactShadowCache;
+
   const size = 256;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -882,17 +1087,16 @@ export function createContactShadowTexture(): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  contactShadowCache = tex;
   return tex;
 }
 
 /* --------------------------------------------------------------------------
    7. Embossed Crimson Sealing Wax Seal (SIGILLVM + ☧) Maps
    -------------------------------------------------------------------------- */
-export function createWaxSealTextures(): {
-  map: THREE.CanvasTexture;
-  bumpMap: THREE.CanvasTexture;
-  normalMap: THREE.CanvasTexture;
-} {
+export function createWaxSealTextures(): WaxSealTextureSet {
+  if (waxSealCache) return waxSealCache;
+
   const size = 256;
   const c = size / 2;
 
@@ -906,7 +1110,6 @@ export function createWaxSealTextures(): {
   bumpCanvas.height = size;
   const bctx = bumpCanvas.getContext('2d')!;
 
-  // Rich crimson radial shading
   const waxGrad = ctx.createRadialGradient(c - 18, c - 18, 10, c, c, c - 4);
   waxGrad.addColorStop(0, '#BC4344');
   waxGrad.addColorStop(0.58, '#8E2627');
@@ -915,11 +1118,9 @@ export function createWaxSealTextures(): {
   ctx.fillStyle = waxGrad;
   ctx.fillRect(0, 0, size, size);
 
-  // Embossed bump base
   bctx.fillStyle = '#5C5C5C';
   bctx.fillRect(0, 0, size, size);
 
-  // Rolled molten outer wax rim with organic folds
   bctx.strokeStyle = '#CFCFCF';
   bctx.lineWidth = 22;
   bctx.beginPath();
@@ -936,7 +1137,6 @@ export function createWaxSealTextures(): {
     bctx.fill();
   }
 
-  // Raised stamped inner seal collar
   ctx.strokeStyle = '#D96465';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -949,7 +1149,6 @@ export function createWaxSealTextures(): {
   bctx.arc(c, c, 68, 0, Math.PI * 2);
   bctx.stroke();
 
-  // Raised center Chi-Rho + SIGILLVM relief
   ctx.font = '700 48px "Fraunces", Georgia, serif';
   ctx.fillStyle = '#DF7576';
   ctx.textAlign = 'center';
@@ -977,13 +1176,17 @@ export function createWaxSealTextures(): {
 
   const normalMap = heightCanvasToNormalTexture(bumpCanvas, 3.2, false);
 
-  return { map, bumpMap, normalMap };
+  waxSealCache = { map, bumpMap, normalMap };
+  return waxSealCache;
 }
 
 /* --------------------------------------------------------------------------
-   8. Roman Opus Sectile Basilica Pavement Floor Texture (Soft Radial Alpha)
+   8. Roman Opus Sectile Basilica Pavement Floor Texture (Cached)
    -------------------------------------------------------------------------- */
 export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = floorCache.get(theme);
+  if (cached) return cached;
+
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -994,7 +1197,6 @@ export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTextur
 
   ctx.clearRect(0, 0, size, size);
 
-  // Subtle concentric marble slab bands
   const bands = [
     { r0: 14, r1: 68, col: isDark ? '#1A2442' : '#E7DBBE' },
     { r0: 68, r1: 138, col: isDark ? '#151E37' : '#EFE5CC' },
@@ -1011,12 +1213,7 @@ export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTextur
       ctx.arc(c, c, b.r1, a0, a1);
       ctx.arc(c, c, b.r0, a1, a0, true);
       ctx.closePath();
-      ctx.fillStyle =
-        i % 2 === 0
-          ? b.col
-          : isDark
-            ? '#131B30'
-            : '#F3EAD5';
+      ctx.fillStyle = i % 2 === 0 ? b.col : isDark ? '#131B30' : '#F3EAD5';
       ctx.fill();
       ctx.strokeStyle = isDark ? 'rgba(200, 164, 70, 0.06)' : 'rgba(150, 114, 27, 0.07)';
       ctx.lineWidth = 1;
@@ -1024,7 +1221,6 @@ export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTextur
     }
   });
 
-  // Whisper-soft brass inlaid compass rings
   const brass = isDark ? 'rgba(216, 184, 90, 0.18)' : 'rgba(150, 114, 27, 0.16)';
   [68, 138, 214].forEach((r) => {
     ctx.strokeStyle = brass;
@@ -1034,7 +1230,6 @@ export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTextur
     ctx.stroke();
   });
 
-  // Smooth radial destination-in mask fading completely to 0 at edge
   ctx.save();
   ctx.globalCompositeOperation = 'destination-in';
   const fade = ctx.createRadialGradient(c, c, size * 0.24, c, c, c - 4);
@@ -1048,13 +1243,17 @@ export function createBasilicaFloorTexture(theme: ThemeMode): THREE.CanvasTextur
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  floorCache.set(theme, tex);
   return tex;
 }
 
 /* --------------------------------------------------------------------------
-   9. Enriched Cathedral Stained-Glass Rose Window & Volumetric Light Shaft
+   9. Enriched Cathedral Stained-Glass Rose Window & Light Shafts (Cached)
    -------------------------------------------------------------------------- */
 export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = roseCache.get(theme);
+  if (cached) return cached;
+
   const size = 512;
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -1064,7 +1263,6 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
 
   ctx.clearRect(0, 0, size, size);
 
-  // Outer liturgical bloom fading gently to alpha 0 at r = 252
   const bloom = ctx.createRadialGradient(c, c, 24, c, c, 252);
   if (theme === 'dark') {
     bloom.addColorStop(0, 'rgba(228, 199, 116, 0.36)');
@@ -1089,7 +1287,6 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
   ];
   const petalAlpha = theme === 'dark' ? 0.42 : 0.32;
 
-  // 12 hand-blown stained-glass lancet petals with depth gradients
   const count = 12;
   const slice = (Math.PI * 2) / count;
   for (let i = 0; i < count; i++) {
@@ -1118,7 +1315,6 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
     ctx.restore();
   }
 
-  // Scalloped outer rose cusps, trefoil eyelets & leaded came spokes
   const lead = theme === 'dark' ? 'rgba(14, 20, 36, 0.90)' : 'rgba(84, 72, 54, 0.68)';
   const silverEdge = theme === 'dark' ? 'rgba(228, 199, 116, 0.24)' : 'rgba(255, 250, 236, 0.35)';
   const goldLead = theme === 'dark' ? 'rgba(228, 199, 116, 0.45)' : 'rgba(150, 114, 27, 0.45)';
@@ -1135,7 +1331,6 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
     ctx.lineWidth = 2;
     ctx.stroke();
 
-    // Small stained-glass outer eyelet between spokes
     const ex = c + Math.cos(am) * 170;
     const ey = c + Math.sin(am) * 170;
     ctx.beginPath();
@@ -1146,7 +1341,6 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
     ctx.lineWidth = 2.2;
     ctx.stroke();
 
-    // Radial leaded mullion + subtle specular came bevel
     ctx.beginPath();
     ctx.moveTo(c + Math.cos(a) * 46, c + Math.sin(a) * 46);
     ctx.lineTo(c + Math.cos(a) * 222, c + Math.sin(a) * 222);
@@ -1184,10 +1378,14 @@ export function createSoftRoseWindowTexture(theme: ThemeMode): THREE.CanvasTextu
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
+  roseCache.set(theme, tex);
   return tex;
 }
 
 export function createLightShaftTexture(theme: ThemeMode): THREE.CanvasTexture {
+  const cached = shaftCache.get(theme);
+  if (cached) return cached;
+
   const w = 256;
   const h = 512;
   const canvas = document.createElement('canvas');
@@ -1210,7 +1408,6 @@ export function createLightShaftTexture(theme: ThemeMode): THREE.CanvasTexture {
   ctx.fillStyle = vert;
   ctx.fillRect(0, 0, w, h);
 
-  // Lateral Gaussian beam falloff to zero at left/right edges
   ctx.save();
   ctx.globalCompositeOperation = 'destination-in';
   const horiz = ctx.createLinearGradient(0, 0, w, 0);
@@ -1225,5 +1422,58 @@ export function createLightShaftTexture(theme: ThemeMode): THREE.CanvasTexture {
 
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
+  shaftCache.set(theme, tex);
   return tex;
+}
+
+/* --------------------------------------------------------------------------
+   10. Non-Blocking Idle Warmup for Opposite Theme (Zero-Lag Theme Switching)
+   -------------------------------------------------------------------------- */
+export function warmAlternateThemeTextures(
+  currentTheme: ThemeMode,
+  fontsReady: boolean,
+  skills: TesseraSkill[]
+): () => void {
+  const alt: ThemeMode = currentTheme === 'dark' ? 'light' : 'dark';
+  const tasks: Array<() => void> = [
+    () => createMarbleSurfaceTextures(alt),
+    () => createBasilicaFloorTexture(alt),
+    () => createSoftRoseWindowTexture(alt),
+    () => createLightShaftTexture(alt),
+    () => createCathedralGlowTexture(alt),
+    () => createCandleWaxTexture(alt),
+    () => createScrollParchmentTexture(alt),
+    () => createArchitraveTexture(alt, fontsReady),
+    ...skills.map((s) => () => createKeyTesseraPbrTextures(s, alt, fontsReady)),
+  ];
+
+  let idx = 0;
+  let cancelled = false;
+  let timerId = 0;
+
+  const scheduleNext = () => {
+    if (cancelled || idx >= tasks.length) return;
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void) => number })
+      .requestIdleCallback;
+    if (ric) {
+      ric(() => {
+        if (cancelled || idx >= tasks.length) return;
+        tasks[idx++]();
+        scheduleNext();
+      });
+    } else {
+      timerId = window.setTimeout(() => {
+        if (cancelled || idx >= tasks.length) return;
+        tasks[idx++]();
+        scheduleNext();
+      }, 45);
+    }
+  };
+
+  timerId = window.setTimeout(scheduleNext, 600);
+
+  return () => {
+    cancelled = true;
+    window.clearTimeout(timerId);
+  };
 }

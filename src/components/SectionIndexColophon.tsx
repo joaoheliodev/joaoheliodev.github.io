@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CAPABILITIES_LEDGER, PUBLIC_REPOS } from '../data/codexData';
+import { FolioReveal } from './FolioReveal';
 
 export function SectionIndexColophon() {
   const [archiveTab, setArchiveTab] = useState<'github' | 'skills'>('github');
@@ -7,17 +8,17 @@ export function SectionIndexColophon() {
   return (
     <>
       <section className="chapter-band chapter-band--tabula" id="github-archive">
-        <div className="container">
+        <FolioReveal className="container">
           <div className="archive-head-row">
             <div className="chapter-marker">
               <span className="chapter-numeral">V</span>
               <div>
-                <p className="latin-incipit">Tabula codicum — Archivum publicum</p>
-                <h2 className="chapter-heading">GitHub &amp; Dossiê de Competências</h2>
+                <p className="latin-incipit">Index codicum publicorum — Catálogo Geral</p>
+                <h2 className="chapter-heading">Arquivo GitHub e Matriz de Engenharia</h2>
               </div>
             </div>
 
-            <div className="dossier-tabs" role="tablist" aria-label="Abas do arquivo técnico">
+            <div className="dossier-tabs" role="tablist" aria-label="Vistas do arquivo técnico">
               <button
                 type="button"
                 role="tab"
@@ -25,7 +26,7 @@ export function SectionIndexColophon() {
                 className={`dossier-tab-btn ${archiveTab === 'github' ? 'is-active' : ''}`}
                 onClick={() => setArchiveTab('github')}
               >
-                GitHub · Repositórios Públicos
+                <span className="tab-sec">§ 1</span> Códices Públicos (GitHub)
               </button>
               <button
                 type="button"
@@ -34,23 +35,25 @@ export function SectionIndexColophon() {
                 className={`dossier-tab-btn ${archiveTab === 'skills' ? 'is-active' : ''}`}
                 onClick={() => setArchiveTab('skills')}
               >
-                Competências &amp; UNIFEOB
+                <span className="tab-sec">§ 2</span> Camadas L1–L7 e UNIFEOB
               </button>
             </div>
           </div>
 
           {archiveTab === 'github' && (
             <div className="github-archive-panel">
-              {/* Prominent GitHub Profile Banner Card */}
-              <div className="github-profile-banner">
-                <div>
-                  <div className="github-handle-row">
-                    <strong>github.com/joaoheliodev</strong>
-                    <span className="seal-state seal-state--ok">PERFIL PÚBLICO</span>
+              {/* Engraved Archival Masthead (Replaces generic SaaS profile banner card) */}
+              <div className="archival-masthead">
+                <div className="archival-masthead-copy">
+                  <div className="archival-masthead-kicker">
+                    <span>Acervo Verificado</span>
+                    <span className="marginalia-stamp marginalia-stamp--ok">4 Repositórios Autorais</span>
                   </div>
+                  <strong className="archival-handle">github.com/joaoheliodev</strong>
                   <p className="github-bio-line">
-                    Ciência da Computação (UNIFEOB · Brasil) — C, C++, Python, Cibersegurança, IoT,
-                    Redes Corporativas &amp; Cloud Computing.
+                    Ciência da Computação na UNIFEOB (São João da Boa Vista, SP). Código aberto com
+                    foco em rastreabilidade forense, sistemas embarcados determinísticos, redes
+                    corporativas e arquitetura em nuvem.
                   </p>
                 </div>
 
@@ -61,7 +64,7 @@ export function SectionIndexColophon() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Abrir Perfil GitHub ↗
+                    Visitar github.com/joaoheliodev
                   </a>
                   <a
                     className="btn-codex btn-codex--ghost btn-compact"
@@ -69,37 +72,54 @@ export function SectionIndexColophon() {
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    Profile README ↗
+                    Ver README de Perfil
                   </a>
                 </div>
               </div>
 
-              {/* 4 Flagship Public Repositories with deep highlights */}
-              <div className="repo-ledger-grid">
+              {/* Asymmetric Open Archival Ledger (Replaces 2x2 SaaS rounded card grid!) */}
+              <div className="codex-index-ledger" role="list">
                 {PUBLIC_REPOS.map((repo) => (
-                  <article key={repo.name} className="repo-ledger-card">
-                    <div className="repo-card-top">
-                      <span className="repo-layer-tag">{repo.layer}</span>
-                      <a
-                        className="btn-inline-rule"
-                        href={repo.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        GitHub ↗
-                      </a>
+                  <article key={repo.name} className="codex-index-entry" role="listitem">
+                    <div className="codex-entry-meta">
+                      <div className="codex-entry-sig">
+                        <span className="codex-entry-folio">{repo.folio}</span>
+                        <span className="codex-entry-layer">{repo.layerCode}</span>
+                      </div>
+                      <h3 className="codex-entry-title">
+                        <a href={repo.url} target="_blank" rel="noopener noreferrer">
+                          {repo.name}
+                        </a>
+                      </h3>
+                      <p className="codex-entry-domain">{repo.domain}</p>
+                      <ul className="codex-stack-tags" aria-label="Tecnologias empregadas">
+                        {repo.stackList.map((tech) => (
+                          <li key={tech}>{tech}</li>
+                        ))}
+                      </ul>
                     </div>
-                    <h3 className="repo-card-title">{repo.name}</h3>
-                    <div className="repo-card-stack">{repo.language}</div>
-                    <p className="repo-card-summary">{repo.summary}</p>
-                    <ul className="repo-card-highlights">
-                      {repo.highlights.map((hl) => (
-                        <li key={hl}>{hl}</li>
-                      ))}
-                    </ul>
-                    <a className="btn-inline-rule" href={repo.labHref}>
-                      Ir para laboratório interativo →
-                    </a>
+
+                    <div className="codex-entry-body">
+                      <p className="repo-card-summary">{repo.summary}</p>
+                      <ul className="repo-card-highlights">
+                        {repo.highlights.map((hl) => (
+                          <li key={hl}>{hl}</li>
+                        ))}
+                      </ul>
+                      <div className="codex-entry-links">
+                        <a
+                          className="editorial-link"
+                          href={repo.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Repositório no GitHub
+                        </a>
+                        <a className="editorial-link" href={repo.labHref}>
+                          {repo.labLabel}
+                        </a>
+                      </div>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -113,7 +133,9 @@ export function SectionIndexColophon() {
                   {CAPABILITIES_LEDGER.map((item) => (
                     <div key={item.layer} className="ledger-row">
                       <div className="ledger-row-head">
-                        <strong>{item.layer}</strong>
+                        <strong>
+                          <span className="ledger-folio-num">{item.folio}.</span> {item.layer}
+                        </strong>
                         <em>{item.latin}</em>
                       </div>
                       <p>{item.tools}</p>
@@ -123,31 +145,32 @@ export function SectionIndexColophon() {
               </div>
 
               <aside className="academic-margin-folio">
-                <p className="latin-incipit">Schola &amp; Collaboratio</p>
+                <p className="latin-incipit">Schola et Collaboratio</p>
                 <h3 className="academic-title">Ciência da Computação — UNIFEOB</h3>
                 <p>
-                  Formação em curso no Brasil com ênfase prática em arquitetura de computadores,
-                  segurança ofensiva e defensiva, redes corporativas e sistemas distribuídos.
+                  Graduação em andamento com prática intensiva em arquitetura de computadores,
+                  segurança defensiva e análise estática, infraestrutura Cisco e engenharia de
+                  software distribuída.
                 </p>
                 <div className="academic-project-note">
-                  <div className="academic-sub">Colaboração Pública em POO / Backend</div>
+                  <div className="academic-sub">Colaboração Acadêmica em POO e Banco Relacional</div>
                   <p>
-                    <strong>AgroGestor — Caderno de Campo</strong> (Dart + MySQL), voltado ao
-                    controle de insumos agrícolas em linha com o ODS 12.
+                    <strong>AgroGestor — Caderno de Campo</strong> (Dart e MySQL), sistema voltado à
+                    rastreabilidade de insumos agrícolas alinhado ao ODS 12.
                   </p>
                   <a
-                    className="btn-inline-rule"
+                    className="editorial-link"
                     href="https://github.com/PI67feob/PI_2026_02"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    PI67feob / PI_2026_02 ↗
+                    Repositório PI67feob/PI_2026_02
                   </a>
                 </div>
               </aside>
             </div>
           )}
-        </div>
+        </FolioReveal>
       </section>
 
       <footer className="colophon" id="colophon">
@@ -165,36 +188,58 @@ export function SectionIndexColophon() {
 
         <div className="container colophon-two-col">
           <div className="colophon-card">
-            <p className="latin-incipit">In Fine — Ad Maiorem Scientiae Gloriam</p>
-            <h2 className="colophon-heading">Vamos trabalhar juntos</h2>
+            <p className="latin-incipit">Explicit Codex Custodis — Ad Maiorem Scientiae Gloriam</p>
+            <h2 className="colophon-heading">Contato Direto e Cooperação Técnica</h2>
             <p className="colophon-copy">
-              Disponível para oportunidades e projetos em Cibersegurança, Infraestrutura de Redes,
-              Sistemas Embarcados e Engenharia Backend em Nuvem.
+              Aberto a oportunidades de estágio, posições júnior e projetos em Cibersegurança,
+              Engenharia Backend, Redes Corporativas e Sistemas Embarcados.
             </p>
+
+            <div className="colophon-contact-ledger">
+              <div className="colophon-contact-row">
+                <span className="colophon-contact-key">GitHub</span>
+                <a
+                  className="editorial-link"
+                  href="https://github.com/joaoheliodev"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  github.com/joaoheliodev
+                </a>
+              </div>
+              <div className="colophon-contact-row">
+                <span className="colophon-contact-key">LinkedIn</span>
+                <a
+                  className="editorial-link"
+                  href="https://www.linkedin.com/in/joao-helio-dos-reis-souza-982091238"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  in/joao-helio-dos-reis-souza-982091238
+                </a>
+              </div>
+              <div className="colophon-contact-row">
+                <span className="colophon-contact-key">Correio</span>
+                <a className="editorial-link" href="mailto:joaohelio396@gmail.com">
+                  joaohelio396@gmail.com
+                </a>
+              </div>
+            </div>
 
             <div className="colophon-links">
               <a
                 className="btn-codex btn-codex--primary btn-compact"
-                href="https://github.com/joaoheliodev"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="mailto:joaohelio396@gmail.com"
               >
-                GitHub @joaoheliodev ↗
+                Escrever e-mail
               </a>
-
               <a
                 className="btn-codex btn-codex--ghost btn-compact"
                 href="https://www.linkedin.com/in/joao-helio-dos-reis-souza-982091238"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                LinkedIn ↗
-              </a>
-              <a
-                className="btn-codex btn-codex--ghost btn-compact"
-                href="mailto:joaohelio396@gmail.com"
-              >
-                joaohelio396@gmail.com
+                Conectar no LinkedIn
               </a>
             </div>
           </div>

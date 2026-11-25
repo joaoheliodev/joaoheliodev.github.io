@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CodexSanctuary3D } from './components/CodexSanctuary3D';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CommandPalette } from './components/CommandPalette';
+
+const CodexSanctuary3D = lazy(() =>
+  import('./components/CodexSanctuary3D').then((m) => ({ default: m.CodexSanctuary3D }))
+);
+import { FolioMarginRail } from './components/FolioMarginRail';
 import { HeroPrologus } from './components/HeroPrologus';
 import { ScrollRibbon } from './components/ScrollRibbon';
 import { SectionCustody } from './components/SectionCustody';
@@ -98,18 +102,21 @@ export function App() {
 
   return (
     <div className="codex-shell">
-      <CodexSanctuary3D
-        theme={theme}
-        pressCount={pressCount}
-        selectedId={selectedTesseraId}
-        hoveredId={hoveredTesseraId}
-        pressPulseRef={pressPulseRef}
-        onHoverTessera={setHoveredTesseraId}
-        onSelectTessera={handleSelectTessera}
-        onWebGLStatus={setWebglAvailable}
-      />
+      <Suspense fallback={<div className="webgl-fallback" aria-hidden="true" />}>
+        <CodexSanctuary3D
+          theme={theme}
+          pressCount={pressCount}
+          selectedId={selectedTesseraId}
+          hoveredId={hoveredTesseraId}
+          pressPulseRef={pressPulseRef}
+          onHoverTessera={setHoveredTesseraId}
+          onSelectTessera={handleSelectTessera}
+          onWebGLStatus={setWebglAvailable}
+        />
+      </Suspense>
 
       <ScrollRibbon />
+      <FolioMarginRail />
       <TopBar
         theme={theme}
         onToggleTheme={toggleTheme}
@@ -131,28 +138,28 @@ export function App() {
         <TornPaperSeam
           roman="PARS I"
           latin="De Silicio et Signis"
-          layerNote="Camada I · Telemetria Embarcada em C++ e MQTT TLS"
+          layerNote="Fólio I Recto — Camada Física, Firmware C++ e Telemetria TLS"
         />
         <SectionHardware />
 
         <TornPaperSeam
           roman="PARS II"
           latin="De Anatomia Codicis"
-          layerNote="Camada II · Engenharia Reversa Estática e IOCs"
+          layerNote="Fólio II Verso — Dissecação Estática SDNA e Indicadores Desarmados"
         />
         <SectionForensics />
 
         <TornPaperSeam
           roman="PARS III"
           latin="De Retibus et Finibus"
-          layerNote="Camada III · Núcleo Colapsado Cisco e Failover HSRP"
+          layerNote="Fólio III Recto — Núcleo Colapsado Cisco, HSRP e Perímetro ASA"
         />
         <SectionNetwork />
 
         <TornPaperSeam
           roman="PARS IV"
           latin="De Custodia et Auditoria"
-          layerNote="Camada VII · Persistência Poliglota e Cadeia SHA-256"
+          layerNote="Fólio IV Verso — Persistência Poliglota e Âncora Criptográfica SHA-256"
         />
         <SectionCustody />
 

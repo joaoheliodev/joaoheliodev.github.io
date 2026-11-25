@@ -21,35 +21,34 @@ export function SectionTabula3D({
     <section
       className="tabula-3d-stage"
       id="tabula-3d"
-      aria-label="Tabula Lapidea 3D Interativa"
+      aria-label="Tabula Romana 3D Interativa"
     >
-      {/* Sticky centered monumental header modeled on Naresh-Khatri/3d-portfolio skills.tsx */}
       <div className="tabula-sticky-header">
         <div className="container tabula-header-inner">
           <div className="tabula-header-eyebrow">
             <span className="latin-incipit">
               {activeSkill
-                ? `${activeSkill.layer} · ${activeSkill.latin}`
-                : 'Tabula Lapidea · Ars Technica'}
+                ? `Tessera ${activeSkill.roman} (${activeSkill.layer}) — ${activeSkill.latin}`
+                : 'Tabula Romana — Duodecim Tesserae'}
             </span>
           </div>
 
           <h2 className={`tabula-monumental-title ${activeSkill ? 'is-skill-active' : ''}`}>
-            {activeSkill ? activeSkill.title : 'Tabula Lapidea'}
+            {activeSkill ? activeSkill.title : 'Tabula Romana'}
           </h2>
 
           <p className="tabula-header-desc" role="status" aria-live="polite">
             {activeSkill
               ? activeSkill.desc
               : webglAvailable
-                ? '(dica: clique nas tésseras de mármore 3D ou pressione 1–9, 0, -, =)'
-                : '(selecione uma téssera abaixo ou pressione 1–9, 0, -, =)'}
+                ? 'Toque nas doze tésseras esculpidas em mármore ou acione as teclas 1–9, 0, - e = no teclado.'
+                : 'Selecione uma das doze tésseras abaixo ou acione as teclas 1–9, 0, - e = no teclado.'}
           </p>
 
           <div className="tabula-header-actions">
             {activeSkill && (
-              <a className="btn-inline-rule" href={activeSkill.targetHref}>
-                Abrir dossiê ({activeSkill.layer}) →
+              <a className="editorial-link" href={activeSkill.targetHref}>
+                Ler dossiê correspondente ({activeSkill.layer})
               </a>
             )}
             <button
@@ -58,14 +57,16 @@ export function SectionTabula3D({
               onClick={onToggleSound}
               aria-pressed={soundEnabled}
             >
-              {soundEnabled ? 'Som: Ligado' : 'Som: Mudo'}
+              {soundEnabled ? 'Ressonância: Ativa' : 'Ressonância: Silenciada'}
             </button>
-            <span className="seal-state">Acionadas: {String(pressCount).padStart(2, '0')}</span>
+            <span className="marginalia-stamp">
+              Leituras no altar: {String(pressCount).padStart(2, '0')}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Responsive mobile/WebGL-fallback tactile grid (hidden on desktop when 3D canvas is active) */}
+      {/* Responsive mobile / WebGL-fallback tactile grid */}
       <div
         className={`container tabula-mobile-dock-wrap ${
           webglAvailable ? 'tabula-dock-mobile-only' : ''

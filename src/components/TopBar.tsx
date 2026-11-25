@@ -10,13 +10,13 @@ interface TopBarProps {
 
 const NAV_CHAPTERS = [
   { href: '#prologus', roman: '00', title: 'Prologus', latin: 'Ex silicio ad nubem' },
-  { href: '#tabula-3d', roman: '✦', title: 'Tabula Lapidea 3D', latin: 'Ars technica interactiva' },
+  { href: '#tabula-3d', roman: '✦', title: 'Tabula Romana 3D', latin: 'Ars technica interactiva' },
   { href: '#pars-i', roman: 'I', title: 'Estacionamento ESP32', latin: 'Signum ex materia' },
-  { href: '#pars-ii', roman: 'II', title: 'Análise .blend', latin: 'Nihil executum, omnia inspecta' },
+  { href: '#pars-ii', roman: 'II', title: 'Análise Estática .blend', latin: 'Nihil executum, omnia inspecta' },
   { href: '#pars-iii', roman: 'III', title: 'Rede Campus UNIFEOB', latin: 'Duplex via, nulla mora' },
   { href: '#pars-iv', roman: 'IV', title: 'Iosephus SOC', latin: 'Verba volant, hash manet' },
-  { href: '#github-archive', roman: 'V', title: 'Arquivo & GitHub', latin: 'Tabula codicum publicorum' },
-  { href: '#colophon', roman: '∞', title: 'Colophon', latin: 'Ad Maiorem Scientiae Gloriam' },
+  { href: '#github-archive', roman: 'V', title: 'Index Codicum', latin: 'Archivum publicum GitHub' },
+  { href: '#colophon', roman: '§', title: 'Colophon', latin: 'Explicit liber' },
 ];
 
 export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
@@ -44,24 +44,26 @@ export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
           <span className="brand-chirho" aria-hidden="true">
             ☧
           </span>
-          <span className="brand-name">João Hélio</span>
+          <span className="brand-wordmark">
+            <span className="brand-name">João Hélio</span>
+            <span className="brand-folio">Codex Custodis</span>
+          </span>
         </a>
 
-        {/* Clean desktop quick tabs */}
         <nav className="topbar-tabs" aria-label="Atalhos principais">
           <a href="#tabula-3d">Tabula 3D</a>
-          <a href="#pars-i">Projetos</a>
-          <a href="#github-archive">Arquivo</a>
+          <a href="#pars-i">Dossiês</a>
+          <a href="#github-archive">Index Codicum</a>
+          <a href="#colophon">Contato</a>
         </nav>
 
         <div className="topbar-actions">
-          {/* Dedicated GitHub Tab/Link visible across desktop and mobile */}
           <a
             className="chrome-btn chrome-github-tab"
             href="https://github.com/joaoheliodev"
             target="_blank"
             rel="noopener noreferrer"
-            title="Abrir GitHub @joaoheliodev"
+            title="Repositórios públicos em github.com/joaoheliodev"
           >
             <svg
               width="14"
@@ -80,8 +82,9 @@ export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
             className="chrome-btn"
             onClick={onToggleTheme}
             aria-pressed={theme === 'light'}
-            title="Alternar edição Vigília Noturna / Pergaminho"
+            title="Alternar entre edição Vigília Noturna e Pergaminho"
           >
+            <span aria-hidden="true">{theme === 'dark' ? '☾' : '☼'}</span>
             <span>{theme === 'dark' ? 'Vigília' : 'Pergaminho'}</span>
           </button>
 
@@ -89,7 +92,7 @@ export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
             type="button"
             className="chrome-btn"
             onClick={onOpenPalette}
-            title="Abrir console do Codex (Ctrl+K)"
+            title="Abrir terminal de consulta do Codex (Ctrl+K)"
           >
             <span aria-hidden="true">⌘</span>
             <span className="chrome-btn-label">Console</span>
@@ -99,10 +102,10 @@ export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
             type="button"
             className="chrome-menu-toggle"
             aria-expanded={menuOpen}
-            aria-label={menuOpen ? 'Fechar navegação' : 'Abrir navegação'}
+            aria-label={menuOpen ? 'Fechar sumário' : 'Abrir sumário'}
             onClick={() => setMenuOpen((prev) => !prev)}
           >
-            <span className="menu-word">{menuOpen ? 'Fechar' : 'Menu'}</span>
+            <span className="menu-word">{menuOpen ? 'Fechar' : 'Sumário'}</span>
             <span className={`burger-lines ${menuOpen ? 'is-active' : ''}`} aria-hidden="true" />
           </button>
         </div>
@@ -127,9 +130,9 @@ export function TopBar({ theme, onToggleTheme, onOpenPalette }: TopBarProps) {
                 ? { opacity: 0 }
                 : { opacity: 0, clipPath: 'inset(0 0 100% 0)' }
             }
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           >
-            <nav className="container nav-overlay-grid" aria-label="Capítulos do Codex">
+            <nav className="container nav-overlay-grid" aria-label="Sumário dos fólios">
               {NAV_CHAPTERS.map((item) => (
                 <a
                   key={item.href}

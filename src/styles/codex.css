@@ -1,6 +1,6 @@
 /* ==========================================================================
-   CODEX CUSTODIS × EX SILICIO AD NUBEM
-   Design System · João Hélio (joaoheliodev)
+   CODEX CUSTODIS — EX SILICIO AD NUBEM
+   Editorial Manuscript & Architectural Instrument System — João Hélio
    ========================================================================== */
 
 :root {
@@ -9,11 +9,11 @@
   --font-serif: "Fraunces", Georgia, serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  --radius-sm: 10px;
-  --radius-md: 18px;
-  --radius-lg: 24px;
-  --radius-pill: 999px;
-  --transition: 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --transition: 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Vigília Noturna (Default Dark Theme) */
@@ -24,26 +24,26 @@
   --surface-inset: #0E1424;
   --tear-fiber: #DDD1B4;
   --ink: #F1E9D8;
-  --ink-muted: #B6AE9C;
-  --ink-subtle: #807A6E;
+  --ink-muted: #B8B09E;
+  --ink-subtle: #847E72;
   --gold: #C8A446;
   --gold-bright: #E4C774;
   --gold-soft: rgba(200, 164, 70, 0.11);
   --wax: #A63B3C;
   --wax-bright: #DC6A6B;
-  --wax-soft: rgba(166, 59, 60, 0.16);
+  --wax-soft: rgba(166, 59, 60, 0.15);
   --ok: #55AE7B;
-  --ok-soft: rgba(85, 174, 123, 0.15);
+  --ok-soft: rgba(85, 174, 123, 0.14);
   --alta: #DF8E52;
   --alta-soft: rgba(223, 142, 82, 0.15);
   --trace: #78BCDD;
-  --border: rgba(212, 180, 96, 0.16);
-  --border-strong: rgba(228, 199, 116, 0.34);
-  --topbar-bg: rgba(17, 23, 39, 0.90);
-  --band-backdrop: rgba(17, 23, 39, 0.88);
-  --hud-backdrop: rgba(23, 32, 54, 0.84);
+  --border: rgba(212, 180, 96, 0.17);
+  --border-strong: rgba(228, 199, 116, 0.36);
+  --topbar-bg: rgba(17, 23, 39, 0.91);
+  --band-backdrop: rgba(17, 23, 39, 0.90);
+  --hud-backdrop: rgba(23, 32, 54, 0.88);
   --svg-muted: #606B84;
-  --shadow-folio: 0 24px 60px rgba(6, 10, 22, 0.34);
+  --shadow-folio: 0 22px 54px rgba(5, 9, 20, 0.34);
 }
 
 /* Pergaminho (Light Theme) */
@@ -53,8 +53,8 @@
   --surface-vellum: #F1E7D2;
   --surface-inset: #EBE0C8;
   --tear-fiber: #FFFDF8;
-  --ink: #322B20;
-  --ink-muted: #675C4A;
+  --ink: #2E271C;
+  --ink-muted: #645947;
   --ink-subtle: #8C806B;
   --gold: #96721B;
   --gold-bright: #B88F2A;
@@ -70,11 +70,11 @@
   --trace: #2A6380;
   --border: rgba(150, 114, 27, 0.22);
   --border-strong: rgba(150, 114, 27, 0.48);
-  --topbar-bg: rgba(246, 240, 226, 0.93);
-  --band-backdrop: rgba(246, 240, 226, 0.90);
-  --hud-backdrop: rgba(253, 249, 240, 0.90);
+  --topbar-bg: rgba(246, 240, 226, 0.94);
+  --band-backdrop: rgba(246, 240, 226, 0.92);
+  --hud-backdrop: rgba(253, 249, 240, 0.92);
   --svg-muted: #968970;
-  --shadow-folio: 0 20px 44px rgba(50, 43, 32, 0.09);
+  --shadow-folio: 0 18px 42px rgba(46, 39, 28, 0.08);
 }
 
 *,
@@ -97,7 +97,8 @@ body {
   font-family: var(--font-sans);
   font-weight: 400;
   font-size: 16.5px;
-  line-height: 1.7;
+  line-height: 1.68;
+  font-variant-numeric: tabular-nums;
   overflow-x: clip;
   max-width: 100%;
   -webkit-font-smoothing: antialiased;
@@ -134,6 +135,17 @@ pre {
   min-height: 100vh;
 }
 
+/* Tactile Cotton Vellum / Fine Stone Grain (Static SVG Data URI, Zero Runtime Cost) */
+.codex-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  opacity: 0.024;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 .codex-main {
   position: relative;
   z-index: 2;
@@ -146,11 +158,11 @@ pre {
 .container {
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 1.4rem;
+  padding: 0 1.5rem;
 }
 
 /* ==========================================================================
-   WebGL Interactive 3D Sanctuary Stage + Fallback + Scroll Ribbon
+   WebGL Interactive 3D Sanctuary Stage + Fallback + Scroll Ribbon + Folio Rail
    ========================================================================== */
 
 .sanctuary-stage {
@@ -180,8 +192,73 @@ pre {
   pointer-events: none;
 }
 
+/* Desktop Right-Edge Plumb-Line Folio Index (Zero-Re-Render MotionValue) */
+.folio-margin-rail {
+  position: fixed;
+  right: 1.15rem;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 45;
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  pointer-events: auto;
+}
+
+.folio-rail-track {
+  width: 1.5px;
+  background: var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.folio-rail-fill {
+  position: absolute;
+  inset: 0;
+  background: var(--gold-bright);
+  transform-origin: top center;
+}
+
+[data-theme="light"] .folio-rail-fill {
+  background: var(--gold);
+}
+
+.folio-rail-links {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 0.36rem;
+}
+
+.folio-rail-link {
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0.22rem 0.25rem;
+  text-decoration: none;
+  color: var(--ink-subtle);
+  transition: color var(--transition), transform var(--transition);
+}
+
+.folio-rail-link:hover {
+  color: var(--gold-bright);
+  transform: translateX(-2px);
+}
+
+[data-theme="light"] .folio-rail-link:hover {
+  color: var(--gold);
+}
+
+@media (max-width: 1240px) {
+  .folio-margin-rail {
+    display: none;
+  }
+}
+
 /* ==========================================================================
-   Naresh-Style Floating Header & Animated Chapter Drawer
+   Manuscript Header & Chapter Index Drawer
    ========================================================================== */
 
 .topbar {
@@ -191,7 +268,7 @@ pre {
   background: var(--topbar-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
-  transition: background-color 280ms ease;
+  transition: background-color 240ms ease;
 }
 
 .topbar.is-menu-open {
@@ -199,9 +276,9 @@ pre {
 }
 
 .topbar-inner {
-  max-width: 1180px;
+  max-width: 1160px;
   margin: 0 auto;
-  padding: 0.9rem 1.4rem;
+  padding: 0.78rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -211,14 +288,14 @@ pre {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.6rem;
+  gap: 0.65rem;
   text-decoration: none;
   color: inherit;
   flex-shrink: 0;
 }
 
 .brand-chirho {
-  font-size: 1.25rem;
+  font-size: 1.3rem;
   line-height: 1;
   color: var(--gold-bright);
 }
@@ -227,30 +304,41 @@ pre {
   color: var(--gold);
 }
 
+.brand-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.08;
+}
+
 .brand-name {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
-  font-size: 1.05rem;
+  font-size: 1.02rem;
   font-weight: 700;
-  letter-spacing: 0.01em;
   color: var(--ink);
+}
+
+.brand-folio {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.72rem;
+  color: var(--ink-muted);
 }
 
 .topbar-tabs {
   display: flex;
   align-items: center;
-  gap: 1.4rem;
+  gap: 1.5rem;
 }
 
 .topbar-tabs a {
   font-family: var(--font-sans);
   font-size: 0.84rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-weight: 500;
   text-decoration: none;
   color: var(--ink-muted);
-  padding: 0.3rem 0.15rem;
+  padding: 0.28rem 0.1rem;
   border-bottom: 1.5px solid transparent;
   transition: color var(--transition), border-color var(--transition);
 }
@@ -263,12 +351,30 @@ pre {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.45rem;
   flex-shrink: 0;
 }
 
-.chrome-github-tab {
+.chrome-btn,
+.chrome-menu-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  padding: 0.38rem 0.76rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-folio);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
   text-decoration: none;
+  transition: background-color var(--transition), border-color var(--transition), transform var(--transition);
+}
+
+.chrome-github-tab {
   border-color: var(--border-strong);
   color: var(--gold-bright);
 }
@@ -277,55 +383,16 @@ pre {
   color: var(--gold);
 }
 
-.chrome-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  padding: 0.4rem 0.85rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--hud-backdrop);
-  backdrop-filter: blur(8px);
-  color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color var(--transition), border-color var(--transition), transform var(--transition);
-}
-
-.chrome-btn:hover {
-  background: var(--gold-soft);
-  border-color: var(--border-strong);
-  transform: translateY(-1px);
-}
-
-.chrome-menu-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.4rem 0.88rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--hud-backdrop);
-  backdrop-filter: blur(8px);
-  color: var(--ink);
-  font-family: var(--font-sans);
-  font-size: 0.82rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color var(--transition), background-color var(--transition), transform var(--transition);
-}
-
+.chrome-btn:hover,
 .chrome-menu-toggle:hover {
-  border-color: var(--border-strong);
   background: var(--gold-soft);
+  border-color: var(--border-strong);
   transform: translateY(-1px);
 }
 
 .burger-lines {
   position: relative;
-  width: 18px;
+  width: 16px;
   height: 10px;
   display: inline-block;
 }
@@ -338,7 +405,7 @@ pre {
   width: 100%;
   height: 1.5px;
   background: var(--ink);
-  transition: transform 280ms cubic-bezier(0.76, 0, 0.24, 1), top 280ms ease;
+  transition: transform 260ms cubic-bezier(0.76, 0, 0.24, 1), top 260ms ease;
 }
 
 .burger-lines::before {
@@ -361,28 +428,28 @@ pre {
 
 .nav-overlay {
   position: fixed;
-  top: 62px;
+  top: 59px;
   left: 0;
   right: 0;
   background: var(--surface-folio);
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border-strong);
   box-shadow: var(--shadow-folio);
-  padding: 1.8rem 0 2.2rem;
+  padding: 1.7rem 0 2.1rem;
   z-index: 55;
 }
 
 .nav-overlay-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.9rem 1.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem 1.6rem;
 }
 
 .nav-overlay-link {
   display: flex;
   align-items: baseline;
-  gap: 0.85rem;
-  padding: 0.55rem 0.4rem;
+  gap: 0.75rem;
+  padding: 0.55rem 0.35rem;
   border-bottom: 1px solid var(--border);
   text-decoration: none;
   color: var(--ink);
@@ -402,11 +469,10 @@ pre {
 .nav-overlay-roman {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
   font-weight: 700;
   color: var(--gold-bright);
-  min-width: 26px;
+  min-width: 22px;
 }
 
 [data-theme="light"] .nav-overlay-roman {
@@ -421,18 +487,17 @@ pre {
 .nav-overlay-text strong {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1.08rem;
+  font-size: 1.02rem;
   font-weight: 600;
 }
 
 .nav-overlay-text em {
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   color: var(--ink-muted);
 }
 
 /* ==========================================================================
-   Typography & Shared Controls
+   Typography, Engraved Buttons & Marginalia Stamps (Zero SaaS Pill Spam)
    ========================================================================== */
 
 .latin-incipit {
@@ -440,9 +505,9 @@ pre {
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
   font-style: italic;
-  font-size: 1.12rem;
+  font-size: 1.06rem;
   color: var(--gold-bright);
-  margin: 0 0 0.32rem;
+  margin: 0 0 0.28rem;
 }
 
 [data-theme="light"] .latin-incipit {
@@ -453,14 +518,14 @@ pre {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.2rem;
 }
 
 .chapter-numeral {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
-  font-size: 2.95rem;
+  font-size: 2.85rem;
   font-weight: 700;
   line-height: 0.92;
   color: var(--gold-bright);
@@ -477,7 +542,7 @@ pre {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
-  font-size: clamp(1.62rem, 3vw, 2.38rem);
+  font-size: clamp(1.58rem, 2.9vw, 2.3rem);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.12;
@@ -490,13 +555,13 @@ pre {
   align-items: center;
   justify-content: center;
   gap: 0.45rem;
-  padding: 0.7rem 1.38rem;
-  border-radius: var(--radius-pill);
+  padding: 0.66rem 1.28rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-strong);
   font-family: var(--font-sans);
   font-size: 0.86rem;
   font-weight: 600;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
   text-decoration: none;
   cursor: pointer;
   transition: transform var(--transition), background-color var(--transition), color var(--transition), border-color var(--transition);
@@ -538,75 +603,80 @@ pre {
 }
 
 .btn-compact {
-  padding: 0.5rem 1rem;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.02em;
+  padding: 0.48rem 0.92rem;
+  font-size: 0.78rem;
 }
 
-.btn-inline-rule {
+.editorial-link {
+  display: inline-block;
   background: none;
   border: 0;
   border-bottom: 1px solid var(--border-strong);
-  padding: 0.18rem 0;
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
+  padding: 0.16rem 0;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 600;
   color: var(--gold-bright);
   text-decoration: none;
   cursor: pointer;
+  overflow-wrap: anywhere;
   transition: color var(--transition), border-color var(--transition);
 }
 
-[data-theme="light"] .btn-inline-rule {
+[data-theme="light"] .editorial-link {
   color: var(--gold);
 }
 
-.btn-inline-rule:hover {
+.editorial-link:hover {
   color: var(--ink);
   border-bottom-color: var(--ink);
 }
 
-.seal-state {
+/* Ledger Marginalia Stamp (Replaces generic ALL-CAPS rounded pill badges) */
+.marginalia-stamp {
   display: inline-flex;
   align-items: center;
-  padding: 0.22rem 0.72rem;
+  padding: 0.2rem 0.62rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-  font-size: 0.67rem;
+  border-left: 2.5px solid var(--gold);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
   font-weight: 600;
-  letter-spacing: 0.05em;
   color: var(--ink-muted);
   background: var(--surface-inset);
   white-space: nowrap;
 }
 
-.seal-state--ok {
-  border-color: var(--ok);
+.marginalia-stamp--ok {
+  border-color: rgba(85, 174, 123, 0.35);
+  border-left-color: var(--ok);
   background: var(--ok-soft);
   color: var(--ok);
 }
 
-.seal-state--warn {
-  border-color: var(--alta);
+.marginalia-stamp--warn {
+  border-color: rgba(223, 142, 82, 0.35);
+  border-left-color: var(--alta);
   background: var(--alta-soft);
   color: var(--alta);
 }
 
-.seal-state--critica {
-  border-color: var(--wax-bright);
+.marginalia-stamp--critica {
+  border-color: rgba(220, 106, 107, 0.38);
+  border-left-color: var(--wax-bright);
   background: var(--wax-soft);
   color: var(--wax-bright);
 }
 
 /* ==========================================================================
-   Prologus (Boxless Naresh-Style Hero + Open 3D Isometric Stage)
+   Prologus (Open Hero Stage + Manuscript Signature + Plumb-Line Cue)
    ========================================================================== */
 
 .prologus {
   position: relative;
-  padding: 2.5rem 0 3.5rem;
-  min-height: calc(100vh - 64px);
+  padding: 2.4rem 0 3.6rem;
+  min-height: calc(100vh - 62px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -616,7 +686,7 @@ pre {
 .prologus-stage-grid {
   width: 100%;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
+  grid-template-columns: 1.06fr 0.94fr;
   gap: 2rem;
   align-items: center;
 }
@@ -627,29 +697,47 @@ pre {
 .network-lower-grid > *,
 .double-page-spread > *,
 .tabula-grid > *,
+.codex-index-entry > *,
 .colophon-two-col > * {
   min-width: 0;
 }
 
 .prologus-copy {
   pointer-events: auto;
-  padding: 1.4rem 1.8rem 1.4rem 0.6rem;
+  padding: 1.35rem 1.8rem 1.35rem 0.4rem;
   border-radius: var(--radius-lg);
   background: radial-gradient(
     closest-side at 46% 50%,
-    var(--topbar-bg) 28%,
+    var(--topbar-bg) 32%,
     transparent 100%
   );
 }
 
-.hero-salve {
-  margin: 0 0 0.75rem;
-  font-size: 1.05rem;
+.hero-folio-sig {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 0.85rem;
+}
+
+.hero-folio-ref {
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 500;
   color: var(--ink-muted);
 }
 
+.hero-folio-rule {
+  width: 28px;
+  height: 1px;
+  background: var(--border-strong);
+}
+
 .hero-latin-whisper {
+  font-family: var(--font-serif);
   font-style: italic;
+  font-size: 0.96rem;
   color: var(--gold-bright);
 }
 
@@ -661,84 +749,105 @@ pre {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
-  font-size: clamp(3.3rem, 7.2vw, 5.9rem);
+  font-size: clamp(3.3rem, 7.1vw, 5.8rem);
   font-weight: 700;
-  letter-spacing: -0.025em;
-  line-height: 0.96;
-  margin: 0 0 1.25rem;
+  letter-spacing: -0.028em;
+  line-height: 0.94;
+  margin: 0 0 1.2rem;
   color: var(--ink);
 }
 
-.hero-title-accent {
-  background: linear-gradient(125deg, var(--gold-bright) 18%, var(--ink) 95%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+.hero-title-surname {
+  color: var(--gold-bright);
 }
 
-[data-theme="light"] .hero-title-accent {
-  background: linear-gradient(125deg, var(--gold) 15%, var(--ink) 90%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
+[data-theme="light"] .hero-title-surname {
+  color: var(--navy);
 }
 
 .hero-subtitle {
-  font-size: clamp(1rem, 1.45vw, 1.16rem);
-  line-height: 1.5;
+  font-size: clamp(0.98rem, 1.3vw, 1.08rem);
+  line-height: 1.62;
   color: var(--ink-muted);
-  margin: 0 0 1.65rem;
-  max-width: 44ch;
+  margin: 0 0 1.6rem;
+  max-width: 40ch;
 }
 
 .hero-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 1.4rem;
+  gap: 0.7rem;
+  margin-bottom: 1.55rem;
 }
 
-.hero-seal-inline {
+.hero-seal-ledger {
+  padding-top: 0.95rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-width: 48ch;
+}
+
+.hero-seal-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.65rem 0.9rem;
 }
 
-.hero-roman-dots {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
+.hero-roman-seals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
 }
 
-.roman-dot {
-  min-width: 32px;
-  height: 26px;
-  padding: 0 0.45rem;
+.roman-seal {
+  padding: 0.32rem 0.45rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  display: inline-grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 0.68rem;
-  font-weight: 700;
-  text-decoration: none;
-  color: var(--ink-muted);
+  border-radius: var(--radius-xs);
   background: var(--hud-backdrop);
-  transition: all var(--transition);
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  transition: border-color var(--transition), background-color var(--transition), color var(--transition);
 }
 
-.roman-dot:hover {
+.roman-seal:hover {
   border-color: var(--border-strong);
-  color: var(--ink);
+  background: var(--gold-soft);
 }
 
-.roman-dot.is-verified {
+.roman-seal.is-verified {
   border-color: var(--ok);
   background: var(--ok-soft);
+}
+
+.roman-seal-num {
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+
+[data-theme="light"] .roman-seal-num {
+  color: var(--gold);
+}
+
+.roman-seal.is-verified .roman-seal-num,
+.roman-seal.is-verified .roman-seal-lbl {
   color: var(--ok);
+}
+
+.roman-seal-lbl {
+  font-size: 0.7rem;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prologus-canvas-window {
@@ -746,51 +855,46 @@ pre {
   pointer-events: none;
 }
 
-.scroll-cue {
+/* Architectural Plumb-Line Cue (Replaces generic SaaS mouse-wheel oval) */
+.plumb-cue {
   position: absolute;
-  bottom: 1.35rem;
+  bottom: 1.15rem;
   left: 50%;
   transform: translateX(-50%);
   pointer-events: auto;
   text-decoration: none;
-}
-
-.scroll-cue-mouse {
-  width: 24px;
-  height: 40px;
-  border-radius: 12px;
-  border: 1.5px solid var(--border-strong);
   display: flex;
-  justify-content: center;
-  padding-top: 7px;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--ink-muted);
 }
 
-.scroll-cue-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--gold-bright);
-  animation: cue-bounce 2.6s infinite ease-in-out;
+.plumb-cue-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  transition: color var(--transition);
 }
 
-@keyframes cue-bounce {
-  0%, 100% {
-    transform: translateY(0);
-    opacity: 0.95;
-  }
-  50% {
-    transform: translateY(14px);
-    opacity: 0.3;
-  }
+.plumb-cue:hover .plumb-cue-label {
+  color: var(--gold-bright);
+}
+
+.plumb-cue-line {
+  width: 1px;
+  height: 28px;
+  background: linear-gradient(to bottom, var(--gold-bright), transparent);
 }
 
 /* ==========================================================================
-   Tabula Lapidea 3D Interactive Stage (#tabula-3d) — Naresh Sticky Header
+   Tabula Romana 3D Interactive Stage (#tabula-3d)
    ========================================================================== */
 
 .tabula-3d-stage {
   position: relative;
-  min-height: 132vh;
+  min-height: 130vh;
   padding: 1.5rem 0 3rem;
   display: flex;
   flex-direction: column;
@@ -800,10 +904,10 @@ pre {
 
 .tabula-sticky-header {
   position: sticky;
-  top: 74px;
+  top: 72px;
   z-index: 4;
   pointer-events: none;
-  padding-top: 0.5rem;
+  padding-top: 0.45rem;
 }
 
 .tabula-header-inner {
@@ -813,7 +917,7 @@ pre {
   border-radius: var(--radius-lg);
   background: radial-gradient(
     closest-side at 50% 50%,
-    var(--topbar-bg) 24%,
+    var(--topbar-bg) 28%,
     transparent 100%
   );
 }
@@ -826,24 +930,24 @@ pre {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-optical-sizing: auto;
-  font-size: clamp(2.15rem, 4.7vw, 3.9rem);
+  font-size: clamp(2.15rem, 4.6vw, 3.8rem);
   font-weight: 700;
-  line-height: 1.05;
+  line-height: 1.06;
   letter-spacing: -0.02em;
   margin: 0 0 0.4rem;
   color: var(--ink);
-  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.16);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.14);
 }
 
 .tabula-monumental-title.is-skill-active {
-  font-size: clamp(1.75rem, 3.6vw, 3.05rem);
+  font-size: clamp(1.72rem, 3.5vw, 2.95rem);
 }
 
 .tabula-header-desc {
-  margin: 0 auto 0.7rem;
-  max-width: 56ch;
+  margin: 0 auto 0.72rem;
+  max-width: 58ch;
   color: var(--ink-muted);
-  font-size: 0.98rem;
+  font-size: 0.96rem;
 }
 
 .tabula-header-actions {
@@ -851,7 +955,7 @@ pre {
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   pointer-events: auto;
 }
 
@@ -869,11 +973,10 @@ pre {
   pointer-events: auto;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.45rem;
-  padding: 0.7rem;
+  gap: 0.42rem;
+  padding: 0.65rem;
   background: var(--hud-backdrop);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
 }
 
@@ -882,13 +985,14 @@ pre {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.44rem 0.5rem;
-  border-radius: var(--radius-sm);
+  padding: 0.42rem 0.48rem;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--surface-folio);
   color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
   transition: border-color var(--transition), background-color var(--transition), color var(--transition);
 }
@@ -901,12 +1005,13 @@ pre {
 }
 
 .dock-key {
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   display: grid;
   place-items: center;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
   font-size: 0.62rem;
   color: var(--gold-bright);
   flex-shrink: 0;
@@ -922,143 +1027,13 @@ pre {
   white-space: nowrap;
 }
 
-.folio-roman {
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  letter-spacing: 0.12em;
-  color: var(--gold-bright);
-}
-
-[data-theme="light"] .folio-roman {
-  color: var(--gold);
-}
-
-.folio-wax-row {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  margin-bottom: 1rem;
-}
-
-.mini-wax-medallion {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--wax);
-  border: 2px solid #6B191A;
-  box-shadow: inset 0 0 0 3px rgba(243, 235, 216, 0.24);
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-}
-
-.mini-wax-medallion span {
-  font-family: var(--font-display);
-  font-size: 0.56rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  color: #F3EBD8;
-}
-
-.folio-plate-title {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--ink);
-}
-
-.folio-plate-sub {
-  font-size: 0.88rem;
-  font-style: italic;
-  color: var(--ink-muted);
-}
-
-.digest-box {
-  background: var(--surface-inset);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.8rem;
-  margin-bottom: 0.95rem;
-}
-
-.digest-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.63rem;
-  letter-spacing: 0.14em;
-  color: var(--gold-bright);
-  margin-bottom: 0.2rem;
-}
-
-[data-theme="light"] .digest-label {
-  color: var(--gold);
-}
-
-.digest-code {
-  display: block;
-  font-size: 0.7rem;
-  line-height: 1.48;
-  color: var(--ink-muted);
-  overflow-wrap: anywhere;
-  word-break: break-all;
-}
-
-.chapter-ledger {
-  display: flex;
-  flex-direction: column;
-  border-top: 1px solid var(--border);
-  margin-bottom: 1.1rem;
-}
-
-.chapter-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.44rem 0.4rem;
-  border-bottom: 1px solid var(--border);
-  text-decoration: none;
-  color: var(--ink-muted);
-  font-size: 0.94rem;
-  transition: background-color var(--transition), color var(--transition);
-}
-
-.chapter-row:hover {
-  background: var(--gold-soft);
-  color: var(--ink);
-}
-
-.chapter-row.is-verified {
-  color: var(--ok);
-}
-
-.chapter-roman {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 0.82rem;
-  min-width: 22px;
-  color: var(--gold-bright);
-}
-
-[data-theme="light"] .chapter-roman {
-  color: var(--gold);
-}
-
-.chapter-row.is-verified .chapter-roman {
-  color: var(--ok);
-}
-
-.folio-plate-foot {
-  display: flex;
-  justify-content: flex-start;
-}
-
 /* ==========================================================================
    Scroll-Driven Torn Paper Seam (Between Chapters)
    ========================================================================== */
 
 .torn-seam {
   position: relative;
-  height: 108px;
+  height: 106px;
   margin: 0;
   overflow: hidden;
   border-top: 1px solid var(--border);
@@ -1073,7 +1048,7 @@ pre {
   height: 100%;
   max-width: 1120px;
   margin: 0 auto;
-  padding: 0 1.4rem;
+  padding: 0 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1094,16 +1069,15 @@ pre {
   text-align: center;
   line-height: 1.25;
   padding: 0 1.25rem;
-  max-width: 44ch;
+  max-width: 48ch;
 }
 
 .torn-seam-roman {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 0.96rem;
+  font-size: 0.92rem;
   font-weight: 700;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   color: var(--gold-bright);
 }
 
@@ -1114,16 +1088,15 @@ pre {
 .torn-seam-latin {
   font-family: var(--font-serif);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
   font-style: italic;
-  font-size: 1.22rem;
+  font-size: 1.2rem;
   color: var(--ink);
   margin-top: 2px;
 }
 
 .torn-seam-note {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
   color: var(--ink-muted);
   margin-top: 3px;
 }
@@ -1155,11 +1128,11 @@ pre {
 }
 
 /* ==========================================================================
-   Chapter Bands & Asymmetric Silhouettes
+   Chapter Bands, Inked Manuscript Tabs & Engraved Instrument Plates
    ========================================================================== */
 
 .chapter-band {
-  padding: 4.5rem 0;
+  padding: 4.6rem 0;
   background: var(--band-backdrop);
   pointer-events: auto;
 }
@@ -1180,7 +1153,7 @@ pre {
 }
 
 .folio-list li {
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.45rem;
 }
 
 .editorial-actions {
@@ -1188,16 +1161,7 @@ pre {
   flex-wrap: wrap;
   align-items: center;
   gap: 1.1rem;
-  margin-top: 0.5rem;
-}
-
-.deckled-note {
-  margin-top: 1.1rem;
-  padding: 1.05rem 1.2rem;
-  background: var(--surface-folio);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--gold);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  margin-top: 0.65rem;
 }
 
 .table-scroll {
@@ -1217,29 +1181,31 @@ pre {
 .data-table th,
 .data-table td {
   text-align: left;
-  padding: 0.42rem 0.55rem;
+  padding: 0.46rem 0.55rem;
   border-bottom: 1px solid var(--border);
 }
 
 .data-table th {
+  font-family: var(--font-sans);
+  font-weight: 600;
   color: var(--gold-bright);
-  font-size: 0.67rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 0.74rem;
 }
 
 [data-theme="light"] .data-table th {
   color: var(--gold);
 }
 
-/* Workbench Folio Surface */
+/* Engraved Instrument Plate (Crisp 8px bookbinding corners + top hairline accent) */
 .workbench-folio {
+  position: relative;
   min-width: 0;
   max-width: 100%;
   background: var(--surface-folio);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 1.45rem;
+  border-top: 2px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 1.35rem 1.4rem;
   box-shadow: var(--shadow-folio);
 }
 
@@ -1255,11 +1221,11 @@ pre {
 }
 
 .workbench-name {
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--gold-bright);
-  letter-spacing: 0.05em;
 }
 
 [data-theme="light"] .workbench-name {
@@ -1276,11 +1242,11 @@ pre {
 .log-console {
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-xs);
+  padding: 0.62rem 0.75rem;
   font-family: var(--font-mono);
   font-size: 0.7rem;
-  line-height: 1.48;
+  line-height: 1.5;
   color: var(--ink-muted);
   max-height: 146px;
   overflow-y: auto;
@@ -1296,42 +1262,55 @@ pre {
 .log-line--crit { color: var(--wax-bright); }
 .log-line--info { color: var(--trace); }
 
-/* Dossier Technical Inline Tabs */
+/* Inked Manuscript Section Tabs (Replaces SaaS rounded pill buttons) */
 .dossier-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 1rem;
+  gap: 1.15rem;
+  margin-bottom: 1.05rem;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 0.65rem;
 }
 
 .dossier-tab-btn {
-  padding: 0.44rem 0.92rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--border);
-  background: var(--surface-inset);
+  padding: 0.42rem 0.1rem 0.58rem;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
   color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-size: 0.84rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: border-color var(--transition), background-color var(--transition), color var(--transition);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  transition: color var(--transition), border-color var(--transition);
 }
 
 .dossier-tab-btn:hover {
   color: var(--ink);
-  border-color: var(--border-strong);
 }
 
 .dossier-tab-btn.is-active {
-  background: var(--gold-soft);
-  border-color: var(--gold-bright);
   color: var(--ink);
   font-weight: 600;
+  border-bottom-color: var(--gold-bright);
 }
 
 [data-theme="light"] .dossier-tab-btn.is-active {
-  border-color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.tab-sec {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.78rem;
+  color: var(--gold-bright);
+}
+
+[data-theme="light"] .tab-sec {
+  color: var(--gold);
 }
 
 .tab-panel {
@@ -1340,45 +1319,85 @@ pre {
 }
 
 /* ==========================================================================
-   Pars I · Hardware Split & Architectural 12-Bay Gate Floorplan
+   Pars I — Hardware Split, Differential I2C 0x27 Readout & 12-Bay Floorplan
    ========================================================================== */
 
 .hardware-split {
   display: grid;
-  grid-template-columns: 1.15fr 0.95fr;
-  gap: 2.25rem;
+  grid-template-columns: 1.14fr 0.96fr;
+  gap: 2.35rem;
   align-items: start;
 }
 
-.register-strip {
+.i2c-readout-bar {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: 1.25fr 0.95fr;
+  gap: 0.6rem;
   margin-bottom: 0.85rem;
+}
+
+.i2c-char-screen {
+  background: var(--surface-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  padding: 0.55rem 0.72rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+}
+
+.i2c-screen-caption {
+  font-size: 0.66rem;
+  color: var(--ink-subtle);
+  margin-bottom: 0.22rem;
+}
+
+.i2c-char-line {
+  font-size: 0.79rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--gold-bright);
+  line-height: 1.35;
+}
+
+[data-theme="light"] .i2c-char-line {
+  color: var(--navy);
+}
+
+.i2c-char-line--sub {
+  font-size: 0.73rem;
+  color: var(--ink-muted);
+}
+
+.i2c-metrics-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
 }
 
 .register-cell {
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.65rem;
+  border-radius: var(--radius-xs);
+  padding: 0.42rem 0.62rem;
   min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.4rem;
 }
 
 .register-label {
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 0.6rem;
-  letter-spacing: 0.08em;
+  font-size: 0.7rem;
   color: var(--ink-muted);
-  margin-bottom: 2px;
 }
 
 .register-value {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1rem;
+  font-size: 0.96rem;
   font-weight: 700;
   color: var(--gold-bright);
 }
@@ -1390,26 +1409,26 @@ pre {
 .register-value--ok {
   color: var(--ok) !important;
   font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 
 .floorplan-chamber {
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.9rem;
+  border-radius: var(--radius-sm);
+  padding: 0.85rem;
 }
 
 .bays-row {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.4rem;
+  gap: 0.38rem;
 }
 
 .parking-bay {
   min-width: 0;
-  padding: 0.42rem 0.25rem;
-  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.25rem;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1439,8 +1458,8 @@ pre {
 }
 
 .bay-status {
-  font-size: 0.58rem;
-  letter-spacing: 0.04em;
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
   color: var(--ink-muted);
 }
 
@@ -1457,69 +1476,120 @@ pre {
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 0.45rem;
-  margin: 0.65rem 0;
-  padding: 0.45rem 0;
+  gap: 0.4rem;
+  margin: 0.62rem 0;
+  padding: 0.42rem 0;
   border-top: 1px dashed var(--border);
   border-bottom: 1px dashed var(--border);
 }
 
 .lane-divider {
   flex: 1;
-  min-width: 24px;
+  min-width: 14px;
   height: 1px;
   background: var(--border);
 }
 
-.gate-pill {
+.gate-sensor-tag {
   font-family: var(--font-mono);
   font-size: 0.64rem;
   color: var(--ink-muted);
-  padding: 0.28rem 0.75rem;
-  border-radius: var(--radius-pill);
+  padding: 0.24rem 0.55rem;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--surface-folio);
   transition: border-color var(--transition), background-color var(--transition), color var(--transition);
 }
 
-.gate-pill.is-pulsing {
-  border-color: var(--gold-bright);
-  background: var(--gold-soft);
-  color: var(--ink);
+.gate-sensor-tag.is-pulsing {
+  border-color: var(--ok);
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.gate-sensor-tag.is-warn {
+  border-color: var(--alta);
+  background: var(--alta-soft);
+  color: var(--alta);
 }
 
 /* ==========================================================================
-   Pars II · Forensics Layout + Tearable Wax-Sealed Quarantine
+   Pars II — Forensics Binary Map + SDNA Chain + Tearable Wax Quarantine
    ========================================================================== */
 
 .forensics-layout {
   display: grid;
-  grid-template-columns: 0.82fr 1.18fr;
-  gap: 2.25rem;
+  grid-template-columns: 0.86fr 1.14fr;
+  gap: 2.35rem;
   align-items: start;
+}
+
+.binary-map-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-bottom: 0.8rem;
+}
+
+.binary-segment {
+  padding: 0.38rem 0.48rem;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.binary-segment.is-lit {
+  border-color: var(--wax-bright);
+  border-top-color: var(--wax-bright);
+  background: var(--wax-soft);
+}
+
+.binary-seg-title {
+  font-family: var(--font-mono);
+  font-size: 0.63rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binary-seg-meta {
+  font-size: 0.62rem;
+  color: var(--ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chain-steps {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
-  margin-bottom: 0.85rem;
+  gap: 0.42rem;
+  margin-bottom: 0.82rem;
 }
 
 .chain-step-btn {
   text-align: left;
-  padding: 0.5rem 0.6rem;
-  border-radius: var(--radius-sm);
+  padding: 0.48rem 0.58rem;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--surface-vellum);
   color: var(--ink-muted);
-  font-family: var(--font-mono);
-  font-size: 0.69rem;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 500;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  transition: all var(--transition);
+  transition: border-color var(--transition), background-color var(--transition), color var(--transition);
 }
 
 .chain-step-btn:hover {
@@ -1534,7 +1604,9 @@ pre {
 }
 
 .chain-step-num {
-  font-size: 0.61rem;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.68rem;
   color: var(--gold-bright);
 }
 
@@ -1547,8 +1619,16 @@ pre {
   max-width: 100%;
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   padding: 0.85rem;
+}
+
+.forensic-source-ref {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--ink-subtle);
+  margin-bottom: 0.2rem;
+  overflow-wrap: anywhere;
 }
 
 .forensic-symbol {
@@ -1556,7 +1636,8 @@ pre {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--gold-bright);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.38rem;
+  overflow-wrap: anywhere;
 }
 
 [data-theme="light"] .forensic-symbol {
@@ -1564,22 +1645,30 @@ pre {
 }
 
 .forensic-desc {
-  margin: 0 0 0.6rem;
-  font-size: 0.96rem;
+  margin: 0 0 0.62rem;
+  font-size: 0.94rem;
   color: var(--ink);
 }
 
 .forensic-hex {
   margin: 0;
-  padding: 0.55rem 0.72rem;
+  padding: 0.52rem 0.7rem;
   background: var(--surface-folio);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: 0.69rem;
   color: var(--trace);
   white-space: pre-wrap;
   word-break: break-word;
   max-width: 100%;
+}
+
+.forensic-step-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
 }
 
 /* Tearable Wax Seal Chamber */
@@ -1589,9 +1678,9 @@ pre {
 
 .wax-seal-chamber {
   position: relative;
-  min-height: 228px;
+  min-height: 224px;
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   background: var(--surface-folio);
   overflow: hidden;
   box-shadow: var(--shadow-folio);
@@ -1607,15 +1696,15 @@ pre {
   justify-content: space-between;
   align-items: center;
   gap: 0.6rem;
-  padding-bottom: 0.7rem;
+  padding-bottom: 0.65rem;
   border-bottom: 1px solid var(--border);
   margin-bottom: 0.9rem;
 }
 
 .wax-seal-status-tag {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  letter-spacing: 0.1em;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.92rem;
   color: var(--wax-bright);
   font-weight: 600;
 }
@@ -1636,10 +1725,9 @@ pre {
 }
 
 .ioc-kind {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 600;
   color: var(--gold-bright);
 }
 
@@ -1648,13 +1736,13 @@ pre {
 }
 
 .ioc-value {
-  font-size: 0.76rem;
+  font-size: 0.75rem;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
 
 .ioc-note {
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   color: var(--ink-muted);
 }
 
@@ -1726,36 +1814,33 @@ pre {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.35rem;
+  gap: 0.32rem;
 }
 
 .wax-seal-title {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
   font-size: 1.08rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
   color: var(--ink);
 }
 
 .wax-seal-subtitle {
   margin: 0 0 0.25rem;
-  font-size: 0.94rem;
+  font-size: 0.92rem;
   color: var(--ink-muted);
   max-width: 48ch;
 }
 
 .btn-wax {
-  padding: 0.58rem 1.24rem;
-  border-radius: var(--radius-pill);
+  padding: 0.52rem 1.15rem;
+  border-radius: var(--radius-sm);
   border: 1px solid #752223;
   background: var(--wax);
   color: #F6F0E2;
   font-family: var(--font-sans);
   font-size: 0.82rem;
   font-weight: 600;
-  letter-spacing: 0.03em;
   cursor: pointer;
   transition: transform var(--transition), background-color var(--transition);
 }
@@ -1766,16 +1851,17 @@ pre {
 }
 
 /* ==========================================================================
-   Pars III · Full-Width Blueprint Plate + Lower Asymmetric Split
+   Pars III — Full-Width Blueprint Plate + VLSM & SVI ACL Inspector
    ========================================================================== */
 
 .blueprint-plate {
   background: var(--surface-folio);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 1.45rem;
+  border-top: 2px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 1.35rem 1.4rem;
   box-shadow: var(--shadow-folio);
-  margin-bottom: 1.85rem;
+  margin-bottom: 1.9rem;
 }
 
 .blueprint-header {
@@ -1791,10 +1877,10 @@ pre {
 
 .blueprint-caption {
   display: block;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  font-size: 0.98rem;
+  font-weight: 700;
   color: var(--gold-bright);
 }
 
@@ -1803,7 +1889,7 @@ pre {
 }
 
 .blueprint-scale {
-  font-size: 0.92rem;
+  font-size: 0.88rem;
   color: var(--ink-muted);
 }
 
@@ -1817,7 +1903,7 @@ pre {
 .topo-svg-wrap {
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   padding: 0.85rem;
 }
 
@@ -1849,11 +1935,22 @@ pre {
 
 .topo-link--active {
   stroke: var(--gold-bright);
-  stroke-width: 2.6;
+  stroke-width: 2.4;
 }
 
 [data-theme="light"] .topo-link--active {
   stroke: var(--gold);
+}
+
+.topo-link--flow {
+  stroke-dasharray: 8 4;
+  animation: packet-flow 1.8s linear infinite;
+}
+
+@keyframes packet-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
 }
 
 .topo-link--fault {
@@ -1870,20 +1967,22 @@ pre {
 
 .network-lower-grid {
   display: grid;
-  grid-template-columns: 0.95fr 1.05fr;
-  gap: 2rem;
+  grid-template-columns: 0.96fr 1.04fr;
+  gap: 2.2rem;
   align-items: start;
 }
 
 .node-inspector-box {
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
   margin-bottom: 0.85rem;
 }
 
 .node-inspector-role {
-  font-family: var(--font-mono);
-  font-size: 0.69rem;
+  font-size: 0.74rem;
+  font-weight: 600;
   color: var(--gold-bright);
-  margin-bottom: 0.2rem;
+  margin-bottom: 0.15rem;
 }
 
 [data-theme="light"] .node-inspector-role {
@@ -1893,21 +1992,97 @@ pre {
 .node-inspector-title {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1.12rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--ink);
+  margin-bottom: 0.25rem;
+}
+
+.node-inspector-ifaces {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--trace);
   margin-bottom: 0.35rem;
+  overflow-wrap: anywhere;
 }
 
 .node-inspector-detail {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   color: var(--ink-muted);
 }
 
+.vlsm-slice-box {
+  margin-bottom: 0.85rem;
+}
+
+.vlsm-box-title {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  margin-bottom: 0.42rem;
+}
+
+.vlsm-slice-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.38rem;
+  margin-bottom: 0.55rem;
+}
+
+.vlsm-slice-btn {
+  padding: 0.28rem 0.62rem;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  background: var(--surface-inset);
+  color: var(--ink-muted);
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--transition), background-color var(--transition), color var(--transition);
+}
+
+.vlsm-slice-btn:hover,
+.vlsm-slice-btn.is-active {
+  border-color: var(--gold-bright);
+  background: var(--gold-soft);
+  color: var(--ink);
+}
+
+.vlsm-slice-body {
+  padding: 0.6rem 0.72rem;
+  background: var(--surface-inset);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  font-size: 0.84rem;
+}
+
+.vlsm-slice-body code {
+  display: block;
+  font-size: 0.71rem;
+  color: var(--gold-bright);
+  margin-bottom: 0.25rem;
+  overflow-wrap: anywhere;
+}
+
+[data-theme="light"] .vlsm-slice-body code {
+  color: var(--gold);
+}
+
+.vlsm-slice-body p {
+  margin: 0 0 0.28rem;
+  color: var(--ink-muted);
+}
+
+.vlsm-acl-line {
+  margin-bottom: 0 !important;
+  color: var(--ink) !important;
+}
+
 /* ==========================================================================
-   Pars IV · Open Double-Page Codex Ledger Spread
+   Pars IV — Open Double-Page Codex Ledger Spread & 3-Phase Reconciler
    ========================================================================== */
 
 .custody-header-row {
@@ -1920,14 +2095,14 @@ pre {
 
 .codex-axiom {
   margin: 0;
-  padding: 0.85rem 1.15rem;
-  border-left: 3px solid var(--gold);
-  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 0.82rem 1.12rem;
+  border-left: 2.5px solid var(--gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   background: var(--gold-soft);
   font-family: var(--font-serif);
   font-variation-settings: "SOFT" 100, "WONK" 0;
   font-style: italic;
-  font-size: 1.04rem;
+  font-size: 1.02rem;
 }
 
 .double-page-spread {
@@ -1935,7 +2110,7 @@ pre {
   grid-template-columns: 1fr 4px 1fr;
   background: var(--surface-folio);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-folio);
   overflow: hidden;
 }
@@ -1943,7 +2118,7 @@ pre {
 .spread-page {
   min-width: 0;
   max-width: 100%;
-  padding: 1.55rem;
+  padding: 1.45rem;
 }
 
 .spread-spine {
@@ -1961,9 +2136,9 @@ pre {
   justify-content: space-between;
   align-items: center;
   gap: 0.4rem 0.75rem;
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.62rem;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 0.9rem;
+  margin-bottom: 0.88rem;
 }
 
 .spread-page-head > * {
@@ -1973,10 +2148,10 @@ pre {
 }
 
 .spread-latin {
-  font-family: var(--font-mono);
-  font-size: 0.69rem;
+  font-family: var(--font-display);
+  font-variation-settings: "SOFT" 100, "WONK" 0;
+  font-size: 0.86rem;
   font-weight: 600;
-  letter-spacing: 0.08em;
   color: var(--gold-bright);
 }
 
@@ -1994,7 +2169,7 @@ pre {
   padding: 0.75rem;
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: 0.69rem;
   line-height: 1.48;
   color: var(--ink);
@@ -2006,16 +2181,16 @@ pre {
 .custody-anchor-block {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: 0.52rem;
 }
 
 .anchor-meta-row {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  padding-bottom: 0.45rem;
+  gap: 0.14rem;
+  padding-bottom: 0.44rem;
   border-bottom: 1px solid var(--border);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   color: var(--ink-muted);
 }
 
@@ -2028,12 +2203,11 @@ pre {
 
 .custody-verdict {
   margin-top: 0.5rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.72rem 0.85rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   background: var(--surface-inset);
-  font-family: var(--font-mono);
-  font-size: 0.71rem;
+  font-size: 0.82rem;
   overflow-wrap: anywhere;
 }
 
@@ -2048,39 +2222,76 @@ pre {
 }
 
 .verdict-hashes {
-  margin-top: 0.35rem;
+  margin-top: 0.32rem;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
   color: var(--ink-muted);
 }
 
-/* Iosephus 3-Phase Pipeline Strip & Deep Tabs */
 .custody-deep-section {
   margin-top: 1.75rem;
+}
+
+.reconciler-ledger {
+  background: var(--surface-folio);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.15rem 1.3rem;
+  margin-bottom: 1.4rem;
+}
+
+.reconciler-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.65rem;
+  padding-bottom: 0.72rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 0.9rem;
+}
+
+.reconciler-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
 }
 
 .pipeline-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.85rem;
-  margin-bottom: 1.35rem;
 }
 
 .pipeline-step {
   min-width: 0;
-  background: var(--surface-folio);
+  background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-top: 2px solid var(--gold);
-  border-radius: var(--radius-md);
-  padding: 0.95rem 1.05rem;
+  border-left: 2.5px solid var(--gold);
+  border-radius: var(--radius-xs);
+  padding: 0.82rem 0.95rem;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.22rem;
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.pipeline-step.is-fault {
+  border-color: var(--wax-bright);
+  border-left-color: var(--wax-bright);
+  background: var(--wax-soft);
+}
+
+.pipeline-step.is-healed {
+  border-color: var(--ok);
+  border-left-color: var(--ok);
+  background: var(--ok-soft);
 }
 
 .pipeline-num {
-  font-family: var(--font-mono);
-  font-size: 0.66rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.76rem;
   color: var(--gold-bright);
 }
 
@@ -2091,19 +2302,18 @@ pre {
 .pipeline-step strong {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 0.95rem;
+  font-size: 0.94rem;
   font-weight: 600;
   color: var(--ink);
 }
 
 .pipeline-step span:last-child {
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   color: var(--ink-muted);
 }
 
 /* ==========================================================================
-   GitHub Archive Tabbed Hub (#github-archive) & Colophon
+   Index Codicum Publicorum (#github-archive) — Open Archival Ledger
    ========================================================================== */
 
 .archive-head-row {
@@ -2115,137 +2325,182 @@ pre {
   margin-bottom: 1.5rem;
 }
 
-.github-profile-banner {
+.archival-masthead {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
   gap: 1.25rem;
-  padding: 1.5rem 1.65rem;
+  padding: 1.35rem 1.5rem;
   background: var(--surface-folio);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-folio);
-  margin-bottom: 1.35rem;
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius-sm);
+  margin-bottom: 1.5rem;
 }
 
-.github-handle-row {
+.archival-masthead-copy {
+  max-width: 62ch;
+}
+
+.archival-masthead-kicker {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.6rem;
+  font-size: 0.76rem;
+  color: var(--ink-muted);
   margin-bottom: 0.25rem;
 }
 
-.github-handle-row strong {
+.archival-handle {
+  display: block;
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1.15rem;
+  font-size: 1.24rem;
   font-weight: 700;
   color: var(--ink);
+  margin-bottom: 0.25rem;
 }
 
 .github-bio-line {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 0.95rem;
+  font-size: 0.94rem;
 }
 
 .github-banner-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.55rem;
 }
 
-.repo-ledger-grid {
+/* Asymmetric Open Ledger Entries (Replaces 2x2 SaaS rounded card grid!) */
+.codex-index-ledger {
+  border-top: 1.5px solid var(--border-strong);
+}
+
+.codex-index-entry {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.15rem;
+  grid-template-columns: 0.78fr 1.22fr;
+  gap: 2rem;
+  padding: 1.55rem 0;
+  border-bottom: 1px solid var(--border);
+  align-items: start;
 }
 
-.repo-ledger-card {
-  min-width: 0;
-  background: var(--surface-folio);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  box-shadow: var(--shadow-folio);
+.codex-entry-sig {
   display: flex;
-  flex-direction: column;
-  gap: 0.48rem;
-  transition: border-color var(--transition), transform var(--transition);
+  align-items: baseline;
+  gap: 0.65rem;
+  margin-bottom: 0.28rem;
 }
 
-.repo-ledger-card:hover {
-  border-color: var(--border-strong);
-  transform: translateY(-2px);
-}
-
-.repo-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.repo-layer-tag {
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
+.codex-entry-folio {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.9rem;
+  font-weight: 600;
   color: var(--gold-bright);
 }
 
-[data-theme="light"] .repo-layer-tag {
+[data-theme="light"] .codex-entry-folio {
   color: var(--gold);
 }
 
-.repo-card-title {
+.codex-entry-layer {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--ink-subtle);
+}
+
+.codex-entry-title {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1.18rem;
+  font-size: 1.28rem;
   font-weight: 700;
-  margin: 0;
-  color: var(--ink);
+  margin: 0 0 0.25rem;
   overflow-wrap: anywhere;
 }
 
-.repo-card-stack {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--trace);
+.codex-entry-title a {
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color var(--transition), border-color var(--transition);
 }
 
-.repo-card-summary {
-  margin: 0.15rem 0 0.25rem;
-  font-size: 0.95rem;
+.codex-entry-title a:hover {
+  color: var(--gold-bright);
+  border-bottom-color: var(--gold-bright);
+}
+
+[data-theme="light"] .codex-entry-title a:hover {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+
+.codex-entry-domain {
+  margin: 0 0 0.65rem;
+  font-size: 0.86rem;
   color: var(--ink-muted);
 }
 
-.repo-card-highlights {
+.codex-stack-tags {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.codex-stack-tags li {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--trace);
+  padding: 0.16rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+}
+
+.repo-card-summary {
   margin: 0 0 0.55rem;
-  padding-left: 1.15rem;
-  font-size: 0.89rem;
+  font-size: 0.95rem;
   color: var(--ink);
 }
 
+.repo-card-highlights {
+  margin: 0 0 0.7rem;
+  padding-left: 1.15rem;
+  font-size: 0.89rem;
+  color: var(--ink-muted);
+}
+
 .repo-card-highlights li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.28rem;
+}
+
+.codex-entry-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
 }
 
 .tabula-grid {
   display: grid;
-  grid-template-columns: 1.45fr 0.85fr;
-  gap: 2.5rem;
+  grid-template-columns: 1.42fr 0.88fr;
+  gap: 2.4rem;
   align-items: start;
 }
 
 .ledger-rows {
-  border-top: 1px solid var(--border-strong);
+  border-top: 1.5px solid var(--border-strong);
 }
 
 .ledger-row {
-  padding: 0.9rem 0;
+  padding: 0.95rem 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -2255,19 +2510,27 @@ pre {
   justify-content: space-between;
   align-items: baseline;
   gap: 0.5rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.28rem;
 }
 
 .ledger-row-head strong {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
   font-size: 1.04rem;
-  letter-spacing: 0.01em;
   color: var(--ink);
 }
 
+.ledger-folio-num {
+  color: var(--gold-bright);
+  margin-right: 0.25rem;
+}
+
+[data-theme="light"] .ledger-folio-num {
+  color: var(--gold);
+}
+
 .ledger-row-head em {
+  font-family: var(--font-serif);
   font-size: 0.92rem;
   color: var(--gold-bright);
 }
@@ -2279,24 +2542,23 @@ pre {
 .ledger-row p {
   margin: 0;
   color: var(--ink-muted);
-  font-size: 0.96rem;
+  font-size: 0.95rem;
 }
 
 .academic-margin-folio {
   background: var(--surface-folio);
   border: 1px solid var(--border);
-  border-top: 3px solid var(--gold);
-  border-radius: var(--radius-lg);
-  padding: 1.55rem;
+  border-top: 2.5px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 1.45rem;
   box-shadow: var(--shadow-folio);
 }
 
 .academic-title {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: 1.18rem;
-  margin: 0 0 0.65rem;
+  font-size: 1.16rem;
+  margin: 0 0 0.6rem;
 }
 
 .academic-project-note {
@@ -2306,8 +2568,8 @@ pre {
 }
 
 .academic-sub {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.76rem;
+  font-weight: 600;
   color: var(--gold-bright);
   margin-bottom: 0.3rem;
 }
@@ -2316,12 +2578,15 @@ pre {
   color: var(--gold);
 }
 
-/* Colophon (Asymmetric 2-Column Naresh Closing Stage) */
+/* ==========================================================================
+   Colophon (Asymmetric Closing Stage Over Open 3D Sanctuary)
+   ========================================================================== */
+
 .colophon {
   position: relative;
   z-index: 2;
   pointer-events: none;
-  padding: 4.5rem 0 4.5rem;
+  padding: 4.5rem 0;
   min-height: 78vh;
   display: flex;
   align-items: center;
@@ -2341,33 +2606,54 @@ pre {
 .colophon-two-col {
   width: 100%;
   display: grid;
-  grid-template-columns: 1.05fr 0.95fr;
-  gap: 2.5rem;
+  grid-template-columns: 1.06fr 0.94fr;
+  gap: 2.4rem;
   align-items: center;
 }
 
 .colophon-card {
   pointer-events: auto;
   background: var(--hud-backdrop);
-  backdrop-filter: blur(10px);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  padding: 1.9rem;
+  border-top: 2px solid var(--gold);
+  border-radius: var(--radius-md);
+  padding: 1.85rem;
   box-shadow: var(--shadow-folio);
 }
 
 .colophon-heading {
   font-family: var(--font-display);
   font-variation-settings: "SOFT" 100, "WONK" 0;
-  font-optical-sizing: auto;
-  font-size: clamp(1.48rem, 2.7vw, 2.15rem);
+  font-size: clamp(1.48rem, 2.6vw, 2.1rem);
   font-weight: 700;
   line-height: 1.12;
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.7rem;
 }
 
 .colophon-copy {
-  margin: 0 0 1.4rem;
+  margin: 0 0 1.2rem;
+  color: var(--ink-muted);
+}
+
+.colophon-contact-ledger {
+  border-top: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.colophon-contact-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.48rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.colophon-contact-key {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 0.88rem;
   color: var(--ink-muted);
 }
 
@@ -2375,19 +2661,11 @@ pre {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
-  margin-bottom: 1rem;
 }
 
 .colophon-3d-window {
   min-height: 320px;
   pointer-events: none;
-}
-
-.placeholder-note {
-  font-family: var(--font-mono);
-  font-size: 0.71rem;
-  color: var(--ink-muted);
-  margin: 0;
 }
 
 /* ==========================================================================
@@ -2406,10 +2684,11 @@ pre {
 }
 
 .palette-dialog {
-  width: min(640px, 100%);
+  width: min(650px, 100%);
   background: var(--surface-folio);
   border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
+  border-top: 2px solid var(--gold);
+  border-radius: var(--radius-md);
   box-shadow: 0 26px 64px rgba(0, 0, 0, 0.55);
   overflow: hidden;
 }
@@ -2418,7 +2697,7 @@ pre {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.85rem 1rem;
+  padding: 0.82rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--surface-inset);
 }
@@ -2438,12 +2717,12 @@ pre {
   outline: none;
   color: var(--ink);
   font-family: var(--font-mono);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
 }
 
 .palette-body {
   padding: 0.85rem 1rem 1rem;
-  max-height: 60vh;
+  max-height: 62vh;
   overflow-y: auto;
 }
 
@@ -2452,7 +2731,7 @@ pre {
   padding: 0.7rem 0.8rem;
   background: var(--surface-inset);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-xs);
   font-size: 0.73rem;
   line-height: 1.5;
   color: var(--ink-muted);
@@ -2463,20 +2742,22 @@ pre {
 .palette-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: 0.42rem;
 }
 
 .palette-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.5rem 0.7rem;
-  border-radius: var(--radius-sm);
+  gap: 0.5rem;
+  padding: 0.48rem 0.68rem;
+  border-radius: var(--radius-xs);
   border: 1px solid var(--border);
   background: var(--surface-vellum);
   color: var(--ink);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-family: var(--font-sans);
+  font-size: 0.76rem;
+  font-weight: 500;
   cursor: pointer;
   text-align: left;
   transition: border-color var(--transition), background-color var(--transition);
@@ -2485,6 +2766,11 @@ pre {
 .palette-item:hover {
   border-color: var(--border-strong);
   background: var(--gold-soft);
+}
+
+.palette-cmd-hint {
+  font-size: 0.65rem;
+  color: var(--ink-subtle);
 }
 
 /* ==========================================================================
@@ -2507,7 +2793,7 @@ pre {
   .network-lower-grid,
   .custody-header-row,
   .pipeline-strip,
-  .repo-ledger-grid,
+  .codex-index-entry,
   .tabula-grid,
   .colophon-two-col {
     grid-template-columns: 1fr;
@@ -2516,7 +2802,6 @@ pre {
 
   .prologus-copy {
     background: var(--hud-backdrop);
-    backdrop-filter: blur(8px);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     padding: 1.25rem;
@@ -2560,7 +2845,7 @@ pre {
     display: block;
   }
 
-  .scroll-cue {
+  .plumb-cue {
     display: none;
   }
 }
@@ -2571,22 +2856,26 @@ pre {
   }
 
   .topbar-inner {
-    padding: 0.6rem 0.85rem;
+    padding: 0.58rem 0.85rem;
     gap: 0.4rem;
   }
 
+  .brand-folio {
+    display: none;
+  }
+
   .brand-name {
-    font-size: 0.8rem;
+    font-size: 0.86rem;
   }
 
   .topbar-actions {
-    gap: 0.35rem;
+    gap: 0.32rem;
   }
 
   .chrome-btn,
   .chrome-menu-toggle {
     padding: 0.34rem 0.52rem;
-    font-size: 0.68rem;
+    font-size: 0.7rem;
   }
 
   .chrome-btn-label,
@@ -2595,12 +2884,13 @@ pre {
   }
 
   .nav-overlay {
-    top: 52px;
+    top: 50px;
     padding: 1.1rem 0 1.4rem;
   }
 
-  .nav-overlay-grid {
-    grid-template-columns: 1fr;
+  .nav-overlay-grid,
+  .hero-roman-seals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .prologus-canvas-window {
@@ -2614,13 +2904,13 @@ pre {
   .tabula-dock {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.35rem;
-    padding: 0.55rem;
+    padding: 0.52rem;
   }
 
   .dock-tessera-btn {
-    padding: 0.38rem 0.36rem;
-    gap: 0.28rem;
-    font-size: 0.62rem;
+    padding: 0.36rem 0.35rem;
+    gap: 0.26rem;
+    font-size: 0.65rem;
   }
 
   .dock-key {
@@ -2641,7 +2931,8 @@ pre {
     display: none;
   }
 
-  .register-strip,
+  .i2c-readout-bar,
+  .binary-map-strip,
   .chain-steps,
   .ioc-table-grid,
   .palette-actions {

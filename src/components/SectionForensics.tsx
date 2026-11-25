@@ -1,6 +1,14 @@
 import { useState } from 'react';
 import { BLEND_STAGES, BLEND_TOOLS, DEFANGED_IOCS } from '../data/codexData';
+import { FolioReveal } from './FolioReveal';
 import { TearableWaxSeal } from './TearableWaxSeal';
+
+const BINARY_REGIONS = [
+  { id: 'header', label: 'Cabeçalho 5.2.1', meta: 'Load UI ativo' },
+  { id: 'sdna', label: 'Blocos SDNA', meta: 'Layout + OB_RENDER + fs_strip' },
+  { id: 'freestyle', label: 'FRS_freestyle', meta: '0x405 sem TXT_ISSCRIPT' },
+  { id: 'zstd', label: 'Cauda Zstd (~4,7 MB)', meta: 'ChaCha20 + LZMA2' },
+] as const;
 
 export function SectionForensics() {
   const [activeStage, setActiveStage] = useState(0);
@@ -10,19 +18,18 @@ export function SectionForensics() {
 
   return (
     <section className="chapter-band chapter-band--l2" id="pars-ii">
-      <div className="container">
+      <FolioReveal className="container">
         <div className="forensics-layout">
-          {/* Left column with 3 deep forensic tabs */}
           <article className="editorial-column forensics-marginalia">
             <div className="chapter-marker">
               <span className="chapter-numeral">II</span>
               <div>
-                <p className="latin-incipit">Nihil executum, omnia inspecta · Forense</p>
-                <h2 className="chapter-heading">Análise Estática de .blend Malicioso</h2>
+                <p className="latin-incipit">Nihil executum, omnia inspecta — Forense Binária</p>
+                <h2 className="chapter-heading">Dissecação Estática de Artefato .blend</h2>
               </div>
             </div>
 
-            <div className="dossier-tabs" role="tablist" aria-label="Detalhes da análise estática">
+            <div className="dossier-tabs" role="tablist" aria-label="Seções da análise estática">
               <button
                 type="button"
                 role="tab"
@@ -30,7 +37,7 @@ export function SectionForensics() {
                 className={`dossier-tab-btn ${activeTab === 'discovery' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('discovery')}
               >
-                Descoberta &amp; Patch
+                <span className="tab-sec">§ 1</span> Cadeia e Correção
               </button>
               <button
                 type="button"
@@ -39,7 +46,7 @@ export function SectionForensics() {
                 className={`dossier-tab-btn ${activeTab === 'symbols' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('symbols')}
               >
-                SDNA &amp; Loader
+                <span className="tab-sec">§ 2</span> Símbolos SDNA
               </button>
               <button
                 type="button"
@@ -48,28 +55,31 @@ export function SectionForensics() {
                 className={`dossier-tab-btn ${activeTab === 'tools' ? 'is-active' : ''}`}
                 onClick={() => setActiveTab('tools')}
               >
-                Ferramentas (tools/)
+                <span className="tab-sec">§ 3</span> Utilitários Python
               </button>
             </div>
 
             {activeTab === 'discovery' && (
               <div className="tab-panel">
                 <p>
-                  Investigação 100% estática — o Blender nunca foi aberto e nenhum código da amostra
-                  foi executado — de um artefato salvo no build <strong>5.2.1 (9e2066aef7ef)</strong>{' '}
-                  capaz de rodar Python <strong>mesmo com Auto Run desligado</strong>.
+                  Auditoria conduzida integralmente em repouso — sem instanciar o Blender nem
+                  executar um único byte da amostra — sobre um documento salvo no build{' '}
+                  <strong>5.2.1 (9e2066aef7ef)</strong> capaz de disparar Python{' '}
+                  <strong>mesmo com Auto Run desabilitado</strong>.
                 </p>
                 <ul className="folio-list">
                   <li>
-                    <strong>Cadeia inédita (nov/2026):</strong> combina texto sem flag{' '}
-                    <code>TXT_ISSCRIPT</code> + Freestyle em modo script + strip no Sequencer +
-                    Outliner trocado para preview <em>Rendered</em>.
+                    <strong>Vetor de seis elos:</strong> texto oculto sem a flag{' '}
+                    <code>TXT_ISSCRIPT</code> acionado por Freestyle em modo script, engatilhado via
+                    strip de cena no Sequencer cujo painel substitui o Outliner em modo{' '}
+                    <em>Rendered</em>.
                   </li>
                   <li>
-                    <strong>Falha em <code>FRS_freestyle.cpp</code>:</strong> <code>prepare()</code>{' '}
-                    não verificava <code>G_FLAG_SCRIPT_AUTOEXEC</code>; corrigida no{' '}
+                    <strong>Raiz no código-fonte:</strong> em <code>FRS_freestyle.cpp</code>, a
+                    rotina <code>prepare()</code> deixava de exigir{' '}
+                    <code>G_FLAG_SCRIPT_AUTOEXEC</code>; brecha sanada no{' '}
                     <strong>PR #165375</strong> (versões <strong>5.2.3, 4.5.15 e 5.3.0</strong>;
-                    séries 5.0 e 5.1 sem correção).
+                    ramos 5.0 e 5.1 permaneceram sem backport).
                   </li>
                 </ul>
               </div>
@@ -81,41 +91,41 @@ export function SectionForensics() {
                   <table className="data-table">
                     <thead>
                       <tr>
-                        <th>Símbolo (5.2.1)</th>
+                        <th>Constante (5.2.1)</th>
                         <th>Valor</th>
-                        <th>Papel no Exploit</th>
+                        <th>Efeito na Cadeia</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
                         <td>TXT_ISSCRIPT</td>
-                        <td>1 &lt;&lt; 4 (ausente)</td>
-                        <td><code>flags = 0x405</code> oculta o script</td>
+                        <td>1 &lt;&lt; 4 (omitido)</td>
+                        <td><code>flags = 0x405</code> esconde o bloco Python</td>
                       </tr>
                       <tr>
                         <td>OB_RENDER</td>
                         <td>6</td>
-                        <td>Força render no preview do sequencer</td>
+                        <td>Obriga avaliação completa no preview inicial</td>
                       </tr>
                       <tr>
                         <td>STRIP_TYPE_SCENE</td>
                         <td>2</td>
-                        <td>Strip <code>fs_strip</code> chama <code>FS_Scene</code></td>
+                        <td>Strip <code>fs_strip</code> invoca <code>FS_Scene</code></td>
                       </tr>
                       <tr>
                         <td>R_EDGE_FRS</td>
                         <td>1 &lt;&lt; 25</td>
-                        <td>Freestyle <code>SCRIPT_MODE = 1</code></td>
+                        <td>Ativa Freestyle com <code>SCRIPT_MODE = 1</code></td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
                 <p style={{ marginTop: '0.75rem' }}>
-                  <strong>Loader:</strong> <code>timer 2s</code> → verifica{' '}
-                  <code>%TEMP%\sim_cache.idx</code> → <code>GET /k :8787</code> ignorando proxy (
-                  <code>ProxyHandler(&#123;&#125;)</code>) → valida <code>HMAC-SHA256</code> →
-                  decifra <code>ChaCha20</code> + XOR + <code>FILTER_LZMA2</code> →{' '}
-                  <code>%TEMP%\sim_cache.exe</code>.
+                  <strong>Estágio final do loader:</strong> temporizador de <code>2 s</code> confere{' '}
+                  <code>%TEMP%\sim_cache.idx</code>, requisita 32 bytes em{' '}
+                  <code>GET /k :8787</code> com <code>ProxyHandler(&#123;&#125;)</code>, valida{' '}
+                  <code>HMAC-SHA256</code>, decifra via <code>ChaCha20</code> + XOR +{' '}
+                  <code>FILTER_LZMA2</code> e materializa <code>%TEMP%\sim_cache.exe</code>.
                 </p>
               </div>
             )}
@@ -123,8 +133,8 @@ export function SectionForensics() {
             {activeTab === 'tools' && (
               <div className="tab-panel">
                 <p>
-                  Scripts escritos em Python puro para auditar o binário com segurança e publicar
-                  apenas IOCs comportamentais/desarmados:
+                  Conjunto autoral em Python puro para inspecionar o binário sem superfície de
+                  execução e extrair indicadores desarmados:
                 </p>
                 <ul className="folio-list">
                   {BLEND_TOOLS.map((tool) => (
@@ -138,26 +148,41 @@ export function SectionForensics() {
 
             <div className="editorial-actions">
               <a
-                className="btn-inline-rule"
+                className="editorial-link"
                 href="https://github.com/joaoheliodev/malicious-blend-analysis"
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                Ver análise completa no GitHub →
+                Ler relatório completo em github.com/joaoheliodev/malicious-blend-analysis
               </a>
             </div>
           </article>
 
-          {/* Wide right 6-stage interactive SDNA chain inspector */}
-          <div className="workbench-folio" aria-label="Inspetor de cadeia estática">
+          <div className="workbench-folio" aria-label="Inspetor de cadeia estática no SDNA">
             <div className="workbench-head">
-              <span className="workbench-name">Cadeia Estática — 6 Etapas no SDNA</span>
-              <span className="seal-state seal-state--critica">
-                ETAPA {currentStage.numeral} / VI
+              <span className="workbench-name">Instrumentum II — Anatomia do Binário e Grafo SDNA</span>
+              <span className="marginalia-stamp marginalia-stamp--critica">
+                Elo {currentStage.numeral} de VI
               </span>
             </div>
 
-            <div className="chain-steps" role="tablist" aria-label="Etapas do gatilho">
+            {/* Interactive Binary Offset / Structure Strip */}
+            <div className="binary-map-strip" aria-label="Segmentos internos do arquivo .blend">
+              {BINARY_REGIONS.map((reg) => {
+                const isLit = currentStage.region === reg.id;
+                return (
+                  <div
+                    key={reg.id}
+                    className={`binary-segment ${isLit ? 'is-lit' : ''}`}
+                  >
+                    <span className="binary-seg-title">{reg.label}</span>
+                    <span className="binary-seg-meta">{reg.meta}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="chain-steps" role="tablist" aria-label="Seis elos do gatilho">
               {BLEND_STAGES.map((stage, idx) => (
                 <button
                   key={stage.numeral}
@@ -167,27 +192,46 @@ export function SectionForensics() {
                   className={`chain-step-btn ${idx === activeStage ? 'is-active' : ''}`}
                   onClick={() => setActiveStage(idx)}
                 >
-                  <span className="chain-step-num">Etapa {stage.numeral}</span>
+                  <span className="chain-step-num">Elo {stage.numeral}</span>
                   <span>{stage.label}</span>
                 </button>
               ))}
             </div>
 
             <div className="forensic-inspector">
+              <div className="forensic-source-ref">{currentStage.sourceRef}</div>
               <div className="forensic-symbol">{currentStage.symbol}</div>
               <p className="forensic-desc">{currentStage.desc}</p>
               <pre className="forensic-hex">{currentStage.hex}</pre>
             </div>
+
+            <div className="forensic-step-nav">
+              <button
+                type="button"
+                className="btn-codex btn-codex--ghost btn-compact"
+                onClick={() =>
+                  setActiveStage((prev) => (prev - 1 + BLEND_STAGES.length) % BLEND_STAGES.length)
+                }
+              >
+                Elo anterior
+              </button>
+              <button
+                type="button"
+                className="btn-codex btn-codex--primary btn-compact"
+                onClick={() => setActiveStage((prev) => (prev + 1) % BLEND_STAGES.length)}
+              >
+                Próximo elo ({BLEND_STAGES[(activeStage + 1) % BLEND_STAGES.length].numeral})
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Full-width tearable wax-sealed parchment envelope containing unarmed IOCs */}
         <div className="quarantine-band">
           <TearableWaxSeal
-            sealTitle="QVARANTENA · IOCs DESARMADOS"
-            sealSubtitle="Indicadores de rede e host isolados em pergaminho lacrado. Rompa o selo para inspecionar os artefatos desarmados."
-            buttonLabel="Romper selo e rasgar pergaminho"
-            resealLabel="Selar quarentena novamente"
+            sealTitle="Quarentena Documental — Indicadores Desarmados"
+            sealSubtitle="Endereços, artefatos de host e assinaturas de decifragem extraídos por leitura estática. Rompa o lacre para abrir o fólio."
+            buttonLabel="Romper lacre e abrir pergaminho"
+            resealLabel="Restaurar lacre de quarentena"
           >
             <div className="ioc-table-grid">
               {DEFANGED_IOCS.map((ioc) => (
@@ -200,7 +244,7 @@ export function SectionForensics() {
             </div>
           </TearableWaxSeal>
         </div>
-      </div>
+      </FolioReveal>
     </section>
   );
 }

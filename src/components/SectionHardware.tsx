@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ESP32_MILESTONES } from '../data/codexData';
+import { FolioReveal } from './FolioReveal';
 
 const TOTAL_VAGAS = 12;
 const COOLDOWN_MS = 1200;
@@ -18,6 +19,7 @@ export function SectionHardware() {
   const [vagasLivres, setVagasLivres] = useState(8);
   const [lastTrigger, setLastTrigger] = useState(0);
   const [packetSeq, setPacketSeq] = useState(42);
+  const [skippedRedraws, setSkippedRedraws] = useState(14);
   const [fsmState, setFsmState] = useState<'IDLE' | 'GATE_IN' | 'GATE_OUT' | 'COOLDOWN'>('IDLE');
   const [activeTab, setActiveTab] = useState<'arch' | 'pins' | 'timeline'>('arch');
   const [logs, setLogs] = useState<LogEntry[]>([
@@ -28,7 +30,7 @@ export function SectionHardware() {
     },
     {
       id: 1,
-      text: '[BOOT] ESP32 DevKit V1 · Anti-crosstalk e cooldown (1.2s) prontos.',
+      text: '[BOOT] ESP32 DevKit V1 pronto: isolamento de crosstalk e cooldown de 1,2 s ativos.',
       level: 'ok',
     },
   ]);
@@ -41,8 +43,9 @@ export function SectionHardware() {
     const now = Date.now();
     if (now - lastTrigger < COOLDOWN_MS) {
       setFsmState('COOLDOWN');
+      setSkippedRedraws((s) => s + 1);
       pushLog(
-        `[DEBOUNCE] Pulso ${direction} descartado: cooldown físico anti-crosstalk ativo (1.2s).`,
+        `[DEBOUNCE] Pulso ${direction} ignorado: janela física anti-crosstalk (1,2 s) preservou o barramento I2C.`,
         'warn'
       );
       window.setTimeout(() => setFsmState('IDLE'), 650);
@@ -55,7 +58,8 @@ export function SectionHardware() {
 
     if (direction === 'ENTRADA') {
       if (vagasLivres <= 0) {
-        pushLog('[STATE] Pátio lotado (00/12 livres). Entrada recusada.', 'crit');
+        setSkippedRedraws((s) => s + 1);
+        pushLog('[STATE] Pátio lotado (00/12 livres). Contagem inalterada; I2C poupado.', 'crit');
         return;
       }
       const next = vagasLivres - 1;
@@ -68,7 +72,8 @@ export function SectionHardware() {
       );
     } else {
       if (vagasLivres >= TOTAL_VAGAS) {
-        pushLog('[STATE] Pátio já livre (12/12). Saída ignorada.', 'warn');
+        setSkippedRedraws((s) => s + 1);
+        pushLog('[STATE] Pátio integralmente livre (12/12). Saída descartada; I2C poupado.', 'warn');
         return;
       }
       const next = vagasLivres + 1;
@@ -86,7 +91,7 @@ export function SectionHardware() {
     setVagasLivres(8);
     setLastTrigger(0);
     setFsmState('IDLE');
-    pushLog('[RESET] Estado restaurado para 08/12 vagas livres.', 'info');
+    pushLog('[RESET] Planta restaurada para 08/12 vagas livres.', 'info');
   };
 
   const ocupadas = TOTAL_VAGAS - vagasLivres;
@@ -95,39 +100,49 @@ export function SectionHardware() {
     occupied: idx < ocupadas,
   }));
 
+  const lcdLine1 = `VAGAS LIVRES: ${pad2(vagasLivres)}`;
+  const lcdLine2 =
+    vagasLivres === 0
+      ? 'ESTADO: LOTADO  '
+      : fsmState === 'COOLDOWN'
+        ? 'HOLD 1200ms I2C '
+        : `OCUP:${pad2(ocupadas)} MQTT:TLS`;
+
   return (
     <section className="chapter-band chapter-band--l1" id="pars-i">
-      <div className="container hardware-split">
-        {/* Obsidian & Gold Architectural Gate Floorplan Instrument (Replaces basic green LCD) */}
+      <FolioReveal className="container hardware-split">
         <div className="workbench-folio" aria-label="Instrumento arquitetônico ESP32">
           <div className="workbench-head">
-            <span className="workbench-name">Instrumentum ESP32 — Matriz de Vagas &amp; TLS</span>
+            <span className="workbench-name">Instrumentum I — Pátio Monitorado e Barramento I2C</span>
             <span
-              className={`seal-state ${
+              className={`marginalia-stamp ${
                 fsmState === 'COOLDOWN'
-                  ? 'seal-state--warn'
+                  ? 'marginalia-stamp--warn'
                   : fsmState === 'GATE_IN' || fsmState === 'GATE_OUT'
-                    ? 'seal-state--ok'
+                    ? 'marginalia-stamp--ok'
                     : ''
               }`}
             >
-              FSM: {fsmState}
+              Estado FSM: {fsmState}
             </span>
           </div>
 
-          {/* I2C Telemetry Register Strip in Obsidian & Antique Gold */}
-          <div className="register-strip" role="status" aria-live="polite">
-            <div className="register-cell">
-              <span className="register-label">VAGAS LIVRES</span>
-              <strong className="register-value">{pad2(vagasLivres)} / 12</strong>
+          {/* Differential I2C 0x27 Character Readout + Telemetry Strip */}
+          <div className="i2c-readout-bar" aria-label="Espelho diferencial do barramento LCD 16x2 I2C">
+            <div className="i2c-char-screen">
+              <span className="i2c-screen-caption">Barramento I2C 0x27 (GPIO 21 SDA / 22 SCL)</span>
+              <code className="i2c-char-line">{lcdLine1}</code>
+              <code className="i2c-char-line i2c-char-line--sub">{lcdLine2}</code>
             </div>
-            <div className="register-cell">
-              <span className="register-label">OCUPAÇÃO ATUAL</span>
-              <strong className="register-value">{pad2(ocupadas)}</strong>
-            </div>
-            <div className="register-cell">
-              <span className="register-label">CANAL I2C / CLOUD</span>
-              <strong className="register-value register-value--ok">TLS 1.3 · 0x27</strong>
+            <div className="i2c-metrics-col">
+              <div className="register-cell">
+                <span className="register-label">Livres / Total</span>
+                <strong className="register-value">{pad2(vagasLivres)} / 12</strong>
+              </div>
+              <div className="register-cell">
+                <span className="register-label">Escritas I2C poupadas</span>
+                <strong className="register-value register-value--ok">{skippedRedraws} ciclos</strong>
+              </div>
             </div>
           </div>
 
@@ -140,18 +155,22 @@ export function SectionHardware() {
                   className={`parking-bay ${b.occupied ? 'is-occupied' : 'is-free'}`}
                 >
                   <span className="bay-id">{b.code}</span>
-                  <span className="bay-status">{b.occupied ? 'OCUP' : 'LIVRE'}</span>
+                  <span className="bay-status">{b.occupied ? 'Ocup.' : 'Livre'}</span>
                 </div>
               ))}
             </div>
 
             <div className="gate-lane">
-              <span className={`gate-pill ${fsmState === 'GATE_IN' ? 'is-pulsing' : ''}`}>
-                Entrada · HC-SR04 #1 (GPIO 4/2)
+              <span className={`gate-sensor-tag ${fsmState === 'GATE_IN' ? 'is-pulsing' : ''}`}>
+                Canal #1 Entrada (GPIO 4/2)
               </span>
               <span className="lane-divider" aria-hidden="true" />
-              <span className={`gate-pill ${fsmState === 'GATE_OUT' ? 'is-pulsing' : ''}`}>
-                Saída · HC-SR04 #2 (GPIO 26/25)
+              <span className={`gate-sensor-tag ${fsmState === 'COOLDOWN' ? 'is-warn' : ''}`}>
+                Janela 1,2 s
+              </span>
+              <span className="lane-divider" aria-hidden="true" />
+              <span className={`gate-sensor-tag ${fsmState === 'GATE_OUT' ? 'is-pulsing' : ''}`}>
+                Canal #2 Saída (GPIO 26/25)
               </span>
             </div>
 
@@ -162,7 +181,7 @@ export function SectionHardware() {
                   className={`parking-bay ${b.occupied ? 'is-occupied' : 'is-free'}`}
                 >
                   <span className="bay-id">{b.code}</span>
-                  <span className="bay-status">{b.occupied ? 'OCUP' : 'LIVRE'}</span>
+                  <span className="bay-status">{b.occupied ? 'Ocup.' : 'Livre'}</span>
                 </div>
               ))}
             </div>
@@ -174,25 +193,25 @@ export function SectionHardware() {
               className="btn-codex btn-codex--primary btn-compact"
               onClick={() => triggerSensor('ENTRADA')}
             >
-              Registrar Entrada (#1)
+              Pulso de Entrada (#1)
             </button>
             <button
               type="button"
               className="btn-codex btn-codex--ghost btn-compact"
               onClick={() => triggerSensor('SAIDA')}
             >
-              Registrar Saída (#2)
+              Pulso de Saída (#2)
             </button>
             <button
               type="button"
               className="btn-codex btn-codex--ghost btn-compact"
               onClick={resetBancada}
             >
-              Resetar
+              Restaurar Pátio
             </button>
           </div>
 
-          <div className="log-console" aria-label="Log MQTT do ESP32">
+          <div className="log-console" aria-label="Telemetria MQTT do ESP32">
             {logs.map((entry) => (
               <div key={entry.id} className={`log-line log-line--${entry.level}`}>
                 {entry.text}
@@ -201,17 +220,16 @@ export function SectionHardware() {
           </div>
         </div>
 
-        {/* Deepened Editorial Column with 3 Technical Tabs */}
         <article className="editorial-column">
           <div className="chapter-marker">
             <span className="chapter-numeral">I</span>
             <div>
-              <p className="latin-incipit">Signum ex materia · C++ &amp; IoT</p>
-              <h2 className="chapter-heading">Estacionamento Inteligente · ESP32</h2>
+              <p className="latin-incipit">Signum ex materia — Firmware C++ e IoT</p>
+              <h2 className="chapter-heading">Estacionamento Inteligente sobre ESP32</h2>
             </div>
           </div>
 
-          <div className="dossier-tabs" role="tablist" aria-label="Detalhes do projeto ESP32">
+          <div className="dossier-tabs" role="tablist" aria-label="Seções do dossiê ESP32">
             <button
               type="button"
               role="tab"
@@ -219,7 +237,7 @@ export function SectionHardware() {
               className={`dossier-tab-btn ${activeTab === 'arch' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('arch')}
             >
-              Arquitetura
+              <span className="tab-sec">§ 1</span> Arquitetura
             </button>
             <button
               type="button"
@@ -228,7 +246,7 @@ export function SectionHardware() {
               className={`dossier-tab-btn ${activeTab === 'pins' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('pins')}
             >
-              Pinagem &amp; Hardware
+              <span className="tab-sec">§ 2</span> Pinagem GPIO
             </button>
             <button
               type="button"
@@ -237,31 +255,32 @@ export function SectionHardware() {
               className={`dossier-tab-btn ${activeTab === 'timeline' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('timeline')}
             >
-              Evolução (13 Marcos)
+              <span className="tab-sec">§ 3</span> 13 Marcos
             </button>
           </div>
 
           {activeTab === 'arch' && (
             <div className="tab-panel">
               <p>
-                Desenvolvido pela <strong>Equipe 13 (Ciência da Computação — UNIFEOB)</strong>, o
-                firmware em C++ transforma um <strong>ESP32 DevKit V1</strong> num controlador
-                autônomo de pátio com contagem determinística e telemetria criptografada em nuvem.
+                Construído pela <strong>Equipe 13 (Ciência da Computação — UNIFEOB)</strong>, o
+                firmware em C++ converte um <strong>ESP32 DevKit V1</strong> em controlador autônomo
+                de pátio com contagem determinística e publicação cifrada em nuvem.
               </p>
               <ul className="folio-list">
                 <li>
-                  <strong>Máquina de estados + Anti-crosstalk:</strong> os disparos dos dois
-                  sensores HC-SR04 são intercalados e protegidos por janela de <em>cooldown</em>{' '}
-                  físico, eliminando eco cruzado e dupla contagem.
+                  <strong>Isolamento de eco cruzado (anti-crosstalk):</strong> as leituras dos dois
+                  transdutores ultrassônicos HC-SR04 operam intercaladas sob janela física de{' '}
+                  <em>cooldown</em> (<code>1200 ms</code>), impedindo dupla contagem na cancela.
                 </li>
                 <li>
-                  <strong>Display LCD 16×2 sem flickering:</strong> o barramento I2C só recebe
-                  redesenho diferencial quando a contagem realmente muda.
+                  <strong>Escrita I2C diferencial:</strong> o visor LCD 16×2 só recebe comando de
+                  redesenho quando o saldo de vagas realmente se altera, zerando cintilação e ruído.
                 </li>
                 <li>
-                  <strong>MQTT seguro e assíncrono:</strong> migração de <code>WiFiClient</code>{' '}
-                  para <code>WiFiClientSecure</code> com TLS rumo ao broker <strong>HiveMQ Cloud</strong>,
-                  com reconexão não-bloqueante para nunca travar a leitura física.
+                  <strong>Telemetria TLS não-bloqueante:</strong> transição de{' '}
+                  <code>WiFiClient</code> para <code>WiFiClientSecure</code> conectado ao broker{' '}
+                  <strong>HiveMQ Cloud</strong>, mantendo a amostragem física livre mesmo em quedas de
+                  rede.
                 </li>
               </ul>
             </div>
@@ -270,33 +289,33 @@ export function SectionHardware() {
           {activeTab === 'pins' && (
             <div className="tab-panel">
               <p>
-                Mapeamento completo dos periféricos conectados ao barramento do ESP32 DevKit V1
-                conforme documentado em <code>src/main.cpp</code>:
+                Mapa elétrico dos periféricos ligados ao microcontrolador conforme especificado em{' '}
+                <code>src/main.cpp</code>:
               </p>
               <div className="table-scroll">
                 <table className="data-table">
                   <thead>
                     <tr>
-                      <th>Função</th>
-                      <th>Pino ESP32</th>
-                      <th>Hardware</th>
+                      <th>Canal</th>
+                      <th>Barramento ESP32</th>
+                      <th>Periférico</th>
                     </tr>
                   </thead>
                   <tbody>
                     <tr>
                       <td>TRIG / ECHO Entrada</td>
                       <td>GPIO 4 / GPIO 2</td>
-                      <td>Sensor HC-SR04 #1</td>
+                      <td>Transdutor HC-SR04 #1</td>
                     </tr>
                     <tr>
                       <td>TRIG / ECHO Saída</td>
                       <td>GPIO 26 / GPIO 25</td>
-                      <td>Sensor HC-SR04 #2</td>
+                      <td>Transdutor HC-SR04 #2</td>
                     </tr>
                     <tr>
-                      <td>LCD I2C SDA / SCL</td>
+                      <td>SDA / SCL (0x27)</td>
                       <td>GPIO 21 / GPIO 22</td>
-                      <td>Display LCD 16×2 I2C</td>
+                      <td>Visor LCD 16×2 I2C</td>
                     </tr>
                   </tbody>
                 </table>
@@ -307,7 +326,7 @@ export function SectionHardware() {
           {activeTab === 'timeline' && (
             <div className="tab-panel">
               <p>
-                Histórico progressivo documentado diretamente na árvore de commits do repositório:
+                Progressão de engenharia registrada commit a commit no histórico do repositório:
               </p>
               <ul className="folio-list">
                 {ESP32_MILESTONES.map((step) => (
@@ -319,16 +338,16 @@ export function SectionHardware() {
 
           <div className="editorial-actions">
             <a
-              className="btn-inline-rule"
+              className="editorial-link"
               href="https://github.com/joaoheliodev/projeto-pi-estacionamento-inteligente"
               target="_blank"
               rel="noopener noreferrer"
             >
-              Ver código no GitHub →
+              Inspecionar fonte C++ em github.com/joaoheliodev/projeto-pi-estacionamento-inteligente
             </a>
           </div>
         </article>
-      </div>
+      </FolioReveal>
     </section>
   );
 }

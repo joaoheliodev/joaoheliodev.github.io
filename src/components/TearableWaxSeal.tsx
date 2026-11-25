@@ -19,8 +19,8 @@ const TEAR_SPRING = {
 export function TearableWaxSeal({
   sealTitle,
   sealSubtitle,
-  buttonLabel = 'Romper selo e rasgar pergaminho',
-  resealLabel = 'Selar novamente',
+  buttonLabel = 'Romper lacre e abrir pergaminho',
+  resealLabel = 'Restaurar lacre de quarentena',
   children,
 }: TearableWaxSealProps) {
   const [torn, setTorn] = useState(false);
@@ -42,10 +42,10 @@ export function TearableWaxSeal({
         aria-hidden={!torn}
       >
         <div className="wax-seal-revealed-bar">
-          <span className="wax-seal-status-tag">SIGILLUM FRACTUM · ARTEFATO DESVELADO</span>
+          <span className="wax-seal-status-tag">Sigillum Fractum — Evidências Desarmadas à Vista</span>
           <button
             type="button"
-            className="btn-inline-rule"
+            className="editorial-link"
             onClick={() => setTorn(false)}
           >
             {resealLabel}
@@ -126,7 +126,6 @@ export function TearableWaxSeal({
 
         {/* Central fracture seam & interactive crimson wax stamp */}
         <div className="wax-seal-center">
-          {/* Left half of fractured wax seal */}
           <motion.div
             className="wax-stamp-wrap"
             initial={false}
@@ -141,7 +140,6 @@ export function TearableWaxSeal({
             <WaxStampGraphic />
           </motion.div>
 
-          {/* Right half of fractured wax seal */}
           <motion.div
             className="wax-stamp-wrap wax-stamp-wrap--overlay"
             initial={false}

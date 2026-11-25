@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import type { ThemeMode } from '../data/codexData';
 import { TESSERAE, type TesseraSkill } from '../data/tesseraeData';
 import {
+  type BronzeTextureSet,
   createArchitraveTexture,
   createBasilicaFloorTexture,
   createBrushedBronzeTextures,
@@ -13,15 +14,20 @@ import {
   createCathedralGlowTexture,
   createContactShadowTexture,
   createCounterPlateTexture,
+  createIncenseWispTexture,
   createKeyTesseraPbrTextures,
   createLightShaftTexture,
   createMarbleSurfaceTextures,
+  createScrollParchmentTexture,
   createSoftRoseWindowTexture,
   createWaxSealTextures,
   LAYER_COLORS,
+  type MarbleTextureSet,
+  warmAlternateThemeTextures,
 } from '../utils/sanctuaryTextures';
 
 const MOTE_COUNT = 160;
+const WISP_COUNT = 16;
 
 // Camera screen-space basis for position = [-7.2, 7.6, 7.6] looking at [0, 0.15, 0]
 const ISO_RIGHT: [number, number, number] = [0.726, 0, 0.688];
@@ -45,6 +51,26 @@ interface MoteSeed {
   rz: number;
   scale: number;
   tintIndex: number;
+}
+
+interface WispSeed {
+  candleSign: -1 | 1;
+  phase: number;
+  speed: number;
+  swayAmp: number;
+  swayFreq: number;
+  scaleBase: number;
+}
+
+interface SanctuaryMetrics {
+  maxScroll: number;
+  vh: number;
+  tabulaTop: number;
+  pars1Top: number;
+  colophonTop: number;
+  isNarrow: boolean;
+  isCompactDesktop: boolean;
+  isMobile: boolean;
 }
 
 declare global {
@@ -115,7 +141,6 @@ function buildRoundedSlabGeometry(
 }
 
 function buildCounterHousingGeometry(): THREE.BufferGeometry {
-  // Rounded upright plaque in XY (width 0.76, height 0.36, thickness 0.16)
   const w = 0.76;
   const h = 0.36;
   const d = 0.16;
@@ -248,7 +273,6 @@ function buildWaxSealGeometry(): THREE.BufferGeometry {
     new THREE.Vector2(0.001, 0.034),
   ];
   const geom = new THREE.LatheGeometry(pts, 32);
-  // Planar top-down UVs so stamped SIGILLVM relief maps without polar distortion
   const pos = geom.attributes.position as THREE.BufferAttribute;
   const uv = geom.attributes.uv as THREE.BufferAttribute;
   for (let i = 0; i < pos.count; i++) {
@@ -259,8 +283,44 @@ function buildWaxSealGeometry(): THREE.BufferGeometry {
   return geom;
 }
 
+function buildRomanStylusGeometry(): THREE.BufferGeometry {
+  // Classical Roman bronze graphium/stilus: fine writing point -> turned grip -> flat wax-erasing spatula
+  const pts = [
+    new THREE.Vector2(0.001, -0.36),
+    new THREE.Vector2(0.006, -0.29),
+    new THREE.Vector2(0.013, -0.18),
+    new THREE.Vector2(0.016, -0.02),
+    new THREE.Vector2(0.021, 0.02),
+    new THREE.Vector2(0.014, 0.05),
+    new THREE.Vector2(0.015, 0.24),
+    new THREE.Vector2(0.026, 0.31),
+    new THREE.Vector2(0.028, 0.35),
+    new THREE.Vector2(0.001, 0.36),
+  ];
+  const geom = new THREE.LatheGeometry(pts, 16);
+  geom.rotateZ(Math.PI / 2);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function buildScrollKnobGeometry(): THREE.BufferGeometry {
+  // Turned umbilical horn/bronze finial at each end of the rolled manuscript scroll
+  const pts = [
+    new THREE.Vector2(0.001, 0),
+    new THREE.Vector2(0.034, 0),
+    new THREE.Vector2(0.038, 0.025),
+    new THREE.Vector2(0.022, 0.05),
+    new THREE.Vector2(0.03, 0.08),
+    new THREE.Vector2(0.016, 0.11),
+    new THREE.Vector2(0.001, 0.115),
+  ];
+  const geom = new THREE.LatheGeometry(pts, 16);
+  geom.computeVertexNormals();
+  return geom;
+}
+
 function buildFlutedColumnGeometry(height: number): THREE.BufferGeometry {
-  const radialSegs = 80; // Exact multiple of 20 flutes -> sharp Doric/Roman fillets
+  const radialSegs = 80;
   const heightSegs = 14;
   const positions: number[] = [];
   const uvs: number[] = [];
@@ -373,33 +433,116 @@ function createMoteSeeds(): MoteSeed[] {
   }));
 }
 
-// Pre-allocated outside render loop (zero per-frame GC)
+function createWispSeeds(): WispSeed[] {
+  return Array.from({ length: WISP_COUNT }, (_, i) => ({
+    candleSign: i % 2 === 0 ? -1 : 1,
+    phase: (i / WISP_COUNT) * Math.PI * 2,
+    speed: 0.26 + (i % 4) * 0.04,
+    swayAmp: 0.045 + (i % 3) * 0.018,
+    swayFreq: 1.4 + (i % 5) * 0.28,
+    scaleBase: 0.11 + (i % 3) * 0.035,
+  }));
+}
+
+// Pre-allocated scratch Three.js instances outside render loop (zero per-frame GC)
 const SCRATCH_OBJ = new THREE.Object3D();
+const SCRATCH_PARENT = new THREE.Object3D();
+const SCRATCH_CHILD = new THREE.Object3D();
+const SCRATCH_MAT4 = new THREE.Matrix4();
 const SCRATCH_COLOR = new THREE.Color();
+const SCRATCH_LOOKAT = new THREE.Vector3(0, 0.15, 0);
 const MARBLE_NORMAL_SCALE = new THREE.Vector2(0.45, 0.45);
 const ENGRAVED_NORMAL_SCALE = new THREE.Vector2(0.55, 0.55);
 const TARGET_GLOW_COLOR = new THREE.Color('#E4C774');
 
 /* --------------------------------------------------------------------------
-   0. Procedural HDR Sanctuary Environment (PMREM IBL + Neutral ToneMapping)
+   0. Procedural HDR Sanctuary Environment (Cached Dual-Theme PMREM IBL)
    -------------------------------------------------------------------------- */
 function CathedralEnvironment({ theme }: { theme: ThemeMode }) {
   const { gl, scene } = useThree();
+  const envMapCacheRef = useRef<
+    Partial<Record<ThemeMode, { texture: THREE.Texture; dispose: () => void }>>
+  >({});
 
   useEffect(() => {
     gl.toneMapping = THREE.NeutralToneMapping;
     gl.toneMappingExposure = theme === 'dark' ? 1.08 : 1.0;
 
-    const env = createCathedralEnvironmentMap(gl, theme);
-    scene.environment = env.texture;
-
-    return () => {
-      if (scene.environment === env.texture) {
-        scene.environment = null;
-      }
-      env.dispose();
-    };
+    let entry = envMapCacheRef.current[theme];
+    if (!entry) {
+      entry = createCathedralEnvironmentMap(gl, theme);
+      envMapCacheRef.current[theme] = entry;
+    }
+    scene.environment = entry.texture;
   }, [gl, scene, theme]);
+
+  useEffect(() => {
+    const cache = envMapCacheRef.current;
+    return () => {
+      scene.environment = null;
+      cache.dark?.dispose();
+      cache.light?.dispose();
+    };
+  }, [scene]);
+
+  return null;
+}
+
+/* --------------------------------------------------------------------------
+   0b. Smooth Frame-Rate-Independent Isometric Camera Glide (Zero React State)
+   -------------------------------------------------------------------------- */
+function SanctuaryCameraRig({
+  metricsRef,
+  pointerRef,
+  reducedMotionRef,
+}: {
+  metricsRef: React.RefObject<SanctuaryMetrics>;
+  pointerRef: React.RefObject<{ x: number; y: number }>;
+  reducedMotionRef: React.RefObject<boolean>;
+}) {
+  const lookYRef = useRef(0.15);
+
+  useFrame((state, delta) => {
+    const dt = Math.min(delta, 0.1);
+    const { maxScroll, tabulaTop, pars1Top, vh } = metricsRef.current;
+    const scrollProg = window.scrollY / maxScroll;
+    const scrollCenter = window.scrollY + vh * 0.5;
+
+    const tTabula = THREE.MathUtils.smoothstep(
+      scrollCenter,
+      tabulaTop - vh * 0.25,
+      tabulaTop + vh * 0.35
+    );
+    const tChapters = THREE.MathUtils.smoothstep(
+      scrollCenter,
+      pars1Top - vh * 0.3,
+      pars1Top + vh * 0.2
+    );
+
+    const focusPull = tTabula * (1 - tChapters);
+    const px = reducedMotionRef.current ? 0 : (pointerRef.current?.x ?? 0) * 0.16;
+    const py = reducedMotionRef.current ? 0 : (pointerRef.current?.y ?? 0) * 0.1;
+
+    const targetCamX = -7.2 + focusPull * 0.32 + px;
+    const targetCamY = 7.6 - focusPull * 0.22 - scrollProg * 0.28 - py;
+    const targetCamZ = 7.6 - focusPull * 0.28;
+    const targetLookY = 0.15 - scrollProg * 0.16;
+
+    if (reducedMotionRef.current) {
+      state.camera.position.set(targetCamX, targetCamY, targetCamZ);
+      SCRATCH_LOOKAT.set(0, targetLookY, 0);
+      state.camera.lookAt(SCRATCH_LOOKAT);
+      return;
+    }
+
+    state.camera.position.x = THREE.MathUtils.damp(state.camera.position.x, targetCamX, 3.4, dt);
+    state.camera.position.y = THREE.MathUtils.damp(state.camera.position.y, targetCamY, 3.4, dt);
+    state.camera.position.z = THREE.MathUtils.damp(state.camera.position.z, targetCamZ, 3.4, dt);
+    lookYRef.current = THREE.MathUtils.damp(lookYRef.current, targetLookY, 3.4, dt);
+
+    SCRATCH_LOOKAT.set(0, lookYRef.current, 0);
+    state.camera.lookAt(SCRATCH_LOOKAT);
+  });
 
   return null;
 }
@@ -409,9 +552,11 @@ function CathedralEnvironment({ theme }: { theme: ThemeMode }) {
    -------------------------------------------------------------------------- */
 function DistantMoteField({
   theme,
+  metricsRef,
   reducedMotionRef,
 }: {
   theme: ThemeMode;
+  metricsRef: React.RefObject<SanctuaryMetrics>;
   reducedMotionRef: React.RefObject<boolean>;
 }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -424,9 +569,9 @@ function DistantMoteField({
         metalness: 0.14,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: theme === 'dark' ? 0.24 : 0.2,
+        opacity: 0.24,
       }),
-    [theme]
+    []
   );
   const seeds = useMemo(() => createMoteSeeds(), []);
 
@@ -434,6 +579,7 @@ function DistantMoteField({
   useEffect(() => () => material.dispose(), [material]);
 
   useEffect(() => {
+    material.opacity = theme === 'dark' ? 0.24 : 0.2;
     const mesh = meshRef.current;
     if (!mesh) return;
     const palette =
@@ -452,14 +598,13 @@ function DistantMoteField({
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [seeds, theme]);
+  }, [material, seeds, theme]);
 
   useFrame((state, delta) => {
     const mesh = meshRef.current;
     if (!mesh || reducedMotionRef.current) return;
     const dt = Math.min(delta, 0.1);
-    const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-    const scrollProg = window.scrollY / maxScroll;
+    const scrollProg = window.scrollY / metricsRef.current.maxScroll;
     mesh.rotation.y = THREE.MathUtils.damp(
       mesh.rotation.y,
       scrollProg * 0.35 + state.clock.elapsedTime * 0.012,
@@ -475,11 +620,79 @@ function DistantMoteField({
 }
 
 /* --------------------------------------------------------------------------
-   2. Realistic Sculpted Fluted Roman Apse, Opus Sectile Floor & Rosa Vitrea
+   1b. Single-Draw-Call Rising Candle Incense Wisps Above Both Votive Chalices
+   -------------------------------------------------------------------------- */
+function IncenseSmokeField({
+  theme,
+  reducedMotionRef,
+}: {
+  theme: ThemeMode;
+  reducedMotionRef: React.RefObject<boolean>;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const wispTex = useMemo(() => createIncenseWispTexture(), []);
+  const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1.8), []);
+  const material = useMemo(
+    () =>
+      new THREE.MeshBasicMaterial({
+        map: wispTex,
+        transparent: true,
+        opacity: 0.14,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      }),
+    [wispTex]
+  );
+  const seeds = useMemo(() => createWispSeeds(), []);
+
+  useEffect(() => () => geometry.dispose(), [geometry]);
+  useEffect(() => () => material.dispose(), [material]);
+
+  useEffect(() => {
+    material.opacity = theme === 'dark' ? 0.14 : 0.085;
+  }, [material, theme]);
+
+  useFrame((state) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    const t = reducedMotionRef.current ? 1.2 : state.clock.elapsedTime;
+
+    for (let i = 0; i < WISP_COUNT; i++) {
+      const s = seeds[i];
+      const cycle = (t * s.speed + s.phase) % 1;
+      const baseX = s.candleSign * 2.64;
+      const baseY = 0.43;
+      const baseZ = -1.94;
+
+      const rise = cycle * 1.35;
+      const curlX = Math.sin(cycle * 5.2 + s.phase) * s.swayAmp * (0.4 + cycle * 1.4);
+      const curlZ = Math.cos(cycle * 4.1 + s.phase * 1.3) * s.swayAmp * 0.8;
+      const fadeEnvelope = Math.sin(cycle * Math.PI);
+      const wScale = s.scaleBase * (0.65 + cycle * 1.25) * Math.max(0.01, fadeEnvelope);
+
+      SCRATCH_OBJ.position.set(baseX + curlX, baseY + rise, baseZ + curlZ);
+      SCRATCH_OBJ.rotation.set(0, -0.52, Math.sin(t * s.swayFreq + s.phase) * 0.18);
+      SCRATCH_OBJ.scale.set(wScale, wScale * 1.45, wScale);
+      SCRATCH_OBJ.updateMatrix();
+      mesh.setMatrixAt(i, SCRATCH_OBJ.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  return (
+    <instancedMesh ref={meshRef} args={[geometry, material, WISP_COUNT]} frustumCulled={false} />
+  );
+}
+
+/* --------------------------------------------------------------------------
+   2. Instanced Classical Fluted Roman Apse, Opus Sectile Floor & Rosa Vitrea
    -------------------------------------------------------------------------- */
 const APSE_CENTER: [number, number] = [0.8, -0.8];
 const APSE_RADIUS = 7.6;
 const COL_ANGLES_DEG = [-77, -55, -33, -11, 11, 33, 55, 77];
+const COL_COUNT = COL_ANGLES_DEG.length;
+const ROSETTE_COUNT = COL_COUNT - 2; // 6 interior spandrel medallions
+const ARCH_COUNT = COL_COUNT - 1; // 7 arches
 const COL_Y_BASE = -7.7;
 const COL_SHAFT_H = 5.2;
 const COL_Y_CAP = COL_Y_BASE + COL_SHAFT_H;
@@ -489,20 +702,14 @@ function CathedralBackdrop3D({
   marbleTextures,
   bronzeTextures,
   candleHaloTex,
+  metricsRef,
   reducedMotionRef,
 }: {
   theme: ThemeMode;
-  marbleTextures: {
-    map: THREE.CanvasTexture;
-    bumpMap: THREE.CanvasTexture;
-    normalMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
-  bronzeTextures: {
-    bumpMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
+  marbleTextures: MarbleTextureSet;
+  bronzeTextures: BronzeTextureSet;
   candleHaloTex: THREE.CanvasTexture;
+  metricsRef: React.RefObject<SanctuaryMetrics>;
   reducedMotionRef: React.RefObject<boolean>;
 }) {
   const backdropRef = useRef<THREE.Group>(null);
@@ -510,19 +717,59 @@ function CathedralBackdrop3D({
   const lanternLRef = useRef<THREE.Group>(null);
   const lanternRRef = useRef<THREE.Group>(null);
 
+  // Instanced column & arch mesh refs (slashing ~68 individual draw calls down to 10!)
+  const plinthInstRef = useRef<THREE.InstancedMesh>(null);
+  const baseInstRef = useRef<THREE.InstancedMesh>(null);
+  const shaftInstRef = useRef<THREE.InstancedMesh>(null);
+  const astragalInstRef = useRef<THREE.InstancedMesh>(null);
+  const capitalInstRef = useRef<THREE.InstancedMesh>(null);
+  const abacusInstRef = useRef<THREE.InstancedMesh>(null);
+  const ribInstRef = useRef<THREE.InstancedMesh>(null);
+  const rosetteStoneInstRef = useRef<THREE.InstancedMesh>(null);
+  const rosetteBronzeInstRef = useRef<THREE.InstancedMesh>(null);
+  const keystoneInstRef = useRef<THREE.InstancedMesh>(null);
+
   const roseTex = useMemo(() => createSoftRoseWindowTexture(theme), [theme]);
   const shaftTex = useMemo(() => createLightShaftTexture(theme), [theme]);
   const floorTex = useMemo(() => createBasilicaFloorTexture(theme), [theme]);
-  const flutedColGeo = useMemo(() => buildFlutedColumnGeometry(COL_SHAFT_H), []);
-  const atticBaseGeo = useMemo(() => buildAtticBaseGeometry(), []);
-  const capitalGeo = useMemo(() => buildCompositeCapitalGeometry(), []);
 
-  useEffect(() => () => roseTex.dispose(), [roseTex]);
-  useEffect(() => () => shaftTex.dispose(), [shaftTex]);
-  useEffect(() => () => floorTex.dispose(), [floorTex]);
-  useEffect(() => () => flutedColGeo.dispose(), [flutedColGeo]);
-  useEffect(() => () => atticBaseGeo.dispose(), [atticBaseGeo]);
-  useEffect(() => () => capitalGeo.dispose(), [capitalGeo]);
+  const plinthGeo = useMemo(() => new THREE.BoxGeometry(0.96, 0.24, 0.96), []);
+  const atticBaseGeo = useMemo(() => buildAtticBaseGeometry(), []);
+  const flutedColGeo = useMemo(() => buildFlutedColumnGeometry(COL_SHAFT_H), []);
+  const astragalGeo = useMemo(() => new THREE.TorusGeometry(0.34, 0.045, 8, 22), []);
+  const capitalGeo = useMemo(() => buildCompositeCapitalGeometry(), []);
+  const abacusGeo = useMemo(() => new THREE.BoxGeometry(0.94, 0.14, 0.94), []);
+  const ribGeo = useMemo(() => new THREE.TorusGeometry(3.2, 0.075, 8, 24, Math.PI * 0.44), []);
+  const rosetteStoneGeo = useMemo(() => new THREE.CylinderGeometry(0.24, 0.24, 0.14, 20), []);
+  const rosetteBronzeGeo = useMemo(() => new THREE.CylinderGeometry(0.14, 0.15, 0.19, 16), []);
+  const keystoneGeo = useMemo(() => new THREE.BoxGeometry(0.21, 0.34, 0.38), []);
+
+  useEffect(
+    () => () => {
+      plinthGeo.dispose();
+      atticBaseGeo.dispose();
+      flutedColGeo.dispose();
+      astragalGeo.dispose();
+      capitalGeo.dispose();
+      abacusGeo.dispose();
+      ribGeo.dispose();
+      rosetteStoneGeo.dispose();
+      rosetteBronzeGeo.dispose();
+      keystoneGeo.dispose();
+    },
+    [
+      plinthGeo,
+      atticBaseGeo,
+      flutedColGeo,
+      astragalGeo,
+      capitalGeo,
+      abacusGeo,
+      ribGeo,
+      rosetteStoneGeo,
+      rosetteBronzeGeo,
+      keystoneGeo,
+    ]
+  );
 
   const columns = useMemo(
     () =>
@@ -554,28 +801,118 @@ function CathedralBackdrop3D({
     return items;
   }, [columns]);
 
+  // Populate static column & arch InstancedMesh matrices once
+  useEffect(() => {
+    let rIdx = 0;
+    columns.forEach((col, i) => {
+      // Plinth
+      SCRATCH_OBJ.position.set(col.x, COL_Y_BASE + 0.12, col.z);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      plinthInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Attic base
+      SCRATCH_OBJ.position.set(col.x, COL_Y_BASE + 0.16, col.z);
+      SCRATCH_OBJ.updateMatrix();
+      baseInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Fluted shaft
+      SCRATCH_OBJ.position.set(col.x, COL_Y_BASE + COL_SHAFT_H * 0.5, col.z);
+      SCRATCH_OBJ.updateMatrix();
+      shaftInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Bronze astragal collar
+      SCRATCH_OBJ.position.set(col.x, COL_Y_CAP - 0.14, col.z);
+      SCRATCH_OBJ.rotation.set(Math.PI / 2, 0, 0);
+      SCRATCH_OBJ.updateMatrix();
+      astragalInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Composite capital
+      SCRATCH_OBJ.position.set(col.x, COL_Y_CAP, col.z);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.updateMatrix();
+      capitalInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Abacus slab
+      SCRATCH_OBJ.position.set(col.x, COL_Y_CAP + 0.25, col.z);
+      SCRATCH_OBJ.updateMatrix();
+      abacusInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      // Radial vault rib: parent [col.x, COL_Y_CAP + 1.85, col.z] rotY -col.theta, child [-3.2, 0, 0]
+      SCRATCH_PARENT.position.set(col.x, COL_Y_CAP + 1.85, col.z);
+      SCRATCH_PARENT.rotation.set(0, -col.theta, 0);
+      SCRATCH_PARENT.scale.setScalar(1);
+      SCRATCH_PARENT.updateMatrix();
+
+      SCRATCH_CHILD.position.set(-3.2, 0, 0);
+      SCRATCH_CHILD.rotation.set(0, 0, 0);
+      SCRATCH_CHILD.scale.setScalar(1);
+      SCRATCH_CHILD.updateMatrix();
+
+      SCRATCH_MAT4.multiplyMatrices(SCRATCH_PARENT.matrix, SCRATCH_CHILD.matrix);
+      ribInstRef.current?.setMatrixAt(i, SCRATCH_MAT4);
+
+      // Interior spandrel rosette medallions
+      if (i > 0 && i < columns.length - 1) {
+        SCRATCH_OBJ.position.set(col.x, COL_Y_CAP + 1.08, col.z);
+        SCRATCH_OBJ.rotation.set(0, -col.theta, Math.PI / 2);
+        SCRATCH_OBJ.scale.setScalar(1);
+        SCRATCH_OBJ.updateMatrix();
+        rosetteStoneInstRef.current?.setMatrixAt(rIdx, SCRATCH_OBJ.matrix);
+        rosetteBronzeInstRef.current?.setMatrixAt(rIdx, SCRATCH_OBJ.matrix);
+        rIdx++;
+      }
+    });
+
+    arches.forEach((arch, idx) => {
+      SCRATCH_PARENT.position.set(arch.mx, COL_Y_CAP + 0.3, arch.mz);
+      SCRATCH_PARENT.rotation.set(0, arch.rotY, 0);
+      SCRATCH_PARENT.scale.setScalar(1);
+      SCRATCH_PARENT.updateMatrix();
+
+      SCRATCH_CHILD.position.set(0, arch.radius + 0.03, 0);
+      SCRATCH_CHILD.rotation.set(0, 0, 0);
+      SCRATCH_CHILD.scale.setScalar(1);
+      SCRATCH_CHILD.updateMatrix();
+
+      SCRATCH_MAT4.multiplyMatrices(SCRATCH_PARENT.matrix, SCRATCH_CHILD.matrix);
+      keystoneInstRef.current?.setMatrixAt(idx, SCRATCH_MAT4);
+    });
+
+    [
+      plinthInstRef,
+      baseInstRef,
+      shaftInstRef,
+      astragalInstRef,
+      capitalInstRef,
+      abacusInstRef,
+      ribInstRef,
+      rosetteStoneInstRef,
+      rosetteBronzeInstRef,
+      keystoneInstRef,
+    ].forEach((ref) => {
+      if (ref.current) ref.current.instanceMatrix.needsUpdate = true;
+    });
+  }, [arches, columns]);
+
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.1);
     const backdrop = backdropRef.current;
     const rose = roseGroupRef.current;
     const elapsed = state.clock.elapsedTime;
 
-    if (rose && !reducedMotionRef.current) {
-      rose.rotation.z += dt * 0.015;
-    }
-
     if (!reducedMotionRef.current) {
+      if (rose) rose.rotation.z += dt * 0.015;
       if (lanternLRef.current) lanternLRef.current.rotation.z = Math.sin(elapsed * 0.75) * 0.035;
       if (lanternRRef.current) {
         lanternRRef.current.rotation.z = Math.sin(elapsed * 0.75 + 1.4) * 0.035;
       }
-    }
-
-    if (backdrop && !reducedMotionRef.current) {
-      const maxScroll = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
-      const scrollProg = window.scrollY / maxScroll;
-      backdrop.rotation.y = THREE.MathUtils.damp(backdrop.rotation.y, scrollProg * 0.12, 2.0, dt);
-      backdrop.position.y = THREE.MathUtils.damp(backdrop.position.y, scrollProg * 0.65, 2.0, dt);
+      if (backdrop) {
+        const scrollProg = window.scrollY / metricsRef.current.maxScroll;
+        backdrop.rotation.y = THREE.MathUtils.damp(backdrop.rotation.y, scrollProg * 0.12, 2.0, dt);
+        backdrop.position.y = THREE.MathUtils.damp(backdrop.position.y, scrollProg * 0.65, 2.0, dt);
+      }
     }
   });
 
@@ -603,7 +940,10 @@ function CathedralBackdrop3D({
       </mesh>
 
       {/* Curved Roman Apse Stylobate Floor Ledge */}
-      <group position={[APSE_CENTER[0], COL_Y_BASE - 0.18, APSE_CENTER[1]]} rotation={[0, arcRotY, 0]}>
+      <group
+        position={[APSE_CENTER[0], COL_Y_BASE - 0.18, APSE_CENTER[1]]}
+        rotation={[0, arcRotY, 0]}
+      >
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[APSE_RADIUS, 0.56, 12, 52, arcSpan]} />
           <meshStandardMaterial
@@ -658,9 +998,7 @@ function CathedralBackdrop3D({
           />
         </mesh>
       </group>
-      <mesh
-        position={[APSE_CENTER[0] + 3.55, COL_Y_CAP + 4.98, APSE_CENTER[1] - 3.55]}
-      >
+      <mesh position={[APSE_CENTER[0] + 3.55, COL_Y_CAP + 4.98, APSE_CENTER[1] - 3.55]}>
         <cylinderGeometry args={[0.36, 0.36, 0.18, 20]} />
         <meshStandardMaterial
           color={goldTrim}
@@ -671,133 +1009,162 @@ function CathedralBackdrop3D({
         />
       </mesh>
 
-      {/* 8 Classical Fluted & Entasis Roman Columns with Attic Bases, Composite Capitals & Radial Vault Ribs */}
-      {columns.map((col, idx) => (
-        <group key={`apse-col-${idx}`} position={[col.x, 0, col.z]}>
-          {/* Square stepped marble plinth */}
-          <mesh position={[0, COL_Y_BASE + 0.12, 0]}>
-            <boxGeometry args={[0.96, 0.24, 0.96]} />
-            <meshStandardMaterial
-              map={marbleTextures.map}
-              bumpMap={marbleTextures.bumpMap}
-              normalMap={marbleTextures.normalMap}
-              normalScale={MARBLE_NORMAL_SCALE}
-              color={trimStone}
-              roughness={0.72}
-              metalness={0.1}
-            />
-          </mesh>
+      {/* Instanced 8 Classical Fluted Roman Columns, Capitals, Vault Ribs & Spandrel Rosettes */}
+      <instancedMesh
+        ref={plinthInstRef}
+        args={[plinthGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          bumpMap={marbleTextures.bumpMap}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          color={trimStone}
+          roughness={0.72}
+          metalness={0.1}
+        />
+      </instancedMesh>
 
-          {/* Sculpted Lathe Attic Base (Torus-Scotia-Torus) */}
-          <mesh position={[0, COL_Y_BASE + 0.16, 0]} geometry={atticBaseGeo}>
-            <meshStandardMaterial
-              map={marbleTextures.map}
-              bumpMap={marbleTextures.bumpMap}
-              normalMap={marbleTextures.normalMap}
-              normalScale={MARBLE_NORMAL_SCALE}
-              roughnessMap={marbleTextures.roughnessMap}
-              bumpScale={0.014}
-              color={stoneCol}
-              roughness={0.64}
-              metalness={0.14}
-            />
-          </mesh>
+      <instancedMesh
+        ref={baseInstRef}
+        args={[atticBaseGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          bumpMap={marbleTextures.bumpMap}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          roughnessMap={marbleTextures.roughnessMap}
+          bumpScale={0.014}
+          color={stoneCol}
+          roughness={0.64}
+          metalness={0.14}
+        />
+      </instancedMesh>
 
-          {/* 20-Flute Concave Carved Marble Shaft with Classical Entasis */}
-          <mesh position={[0, COL_Y_BASE + COL_SHAFT_H * 0.5, 0]} geometry={flutedColGeo}>
-            <meshStandardMaterial
-              map={marbleTextures.map}
-              bumpMap={marbleTextures.bumpMap}
-              normalMap={marbleTextures.normalMap}
-              normalScale={MARBLE_NORMAL_SCALE}
-              roughnessMap={marbleTextures.roughnessMap}
-              bumpScale={0.015}
-              color={stoneCol}
-              roughness={0.58}
-              metalness={0.14}
-            />
-          </mesh>
+      <instancedMesh
+        ref={shaftInstRef}
+        args={[flutedColGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          bumpMap={marbleTextures.bumpMap}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          roughnessMap={marbleTextures.roughnessMap}
+          bumpScale={0.015}
+          color={stoneCol}
+          roughness={0.58}
+          metalness={0.14}
+        />
+      </instancedMesh>
 
-          {/* Brushed Bronze Astragal Collar + Sculpted Composite Capital & Abacus */}
-          <mesh position={[0, COL_Y_CAP - 0.14, 0]} rotation={[Math.PI / 2, 0, 0]}>
-            <torusGeometry args={[0.34, 0.045, 8, 22]} />
-            <meshStandardMaterial
-              color={goldTrim}
-              bumpMap={bronzeTextures.bumpMap}
-              roughnessMap={bronzeTextures.roughnessMap}
-              bumpScale={0.008}
-              roughness={0.36}
-              metalness={0.85}
-            />
-          </mesh>
-          <mesh position={[0, COL_Y_CAP, 0]} geometry={capitalGeo}>
-            <meshStandardMaterial
-              map={marbleTextures.map}
-              bumpMap={marbleTextures.bumpMap}
-              normalMap={marbleTextures.normalMap}
-              normalScale={MARBLE_NORMAL_SCALE}
-              roughnessMap={marbleTextures.roughnessMap}
-              bumpScale={0.014}
-              color={stoneCol}
-              roughness={0.62}
-              metalness={0.14}
-            />
-          </mesh>
-          <mesh position={[0, COL_Y_CAP + 0.25, 0]}>
-            <boxGeometry args={[0.94, 0.14, 0.94]} />
-            <meshStandardMaterial
-              map={marbleTextures.map}
-              color={trimStone}
-              roughness={0.68}
-              metalness={0.12}
-            />
-          </mesh>
+      <instancedMesh
+        ref={astragalInstRef}
+        args={[astragalGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldTrim}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          roughness={0.36}
+          metalness={0.85}
+        />
+      </instancedMesh>
 
-          {/* Radial Curved Semi-Dome Vault Rib Soaring Above Each Column */}
-          <group position={[0, COL_Y_CAP + 1.85, 0]} rotation={[0, -col.theta, 0]}>
-            <mesh position={[-3.2, 0, 0]}>
-              <torusGeometry args={[3.2, 0.075, 8, 24, Math.PI * 0.44]} />
-              <meshStandardMaterial
-                map={marbleTextures.map}
-                normalMap={marbleTextures.normalMap}
-                normalScale={MARBLE_NORMAL_SCALE}
-                color={stoneCol}
-                roughness={0.72}
-                metalness={0.12}
-              />
-            </mesh>
-          </group>
+      <instancedMesh
+        ref={capitalInstRef}
+        args={[capitalGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          bumpMap={marbleTextures.bumpMap}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          roughnessMap={marbleTextures.roughnessMap}
+          bumpScale={0.014}
+          color={stoneCol}
+          roughness={0.62}
+          metalness={0.14}
+        />
+      </instancedMesh>
 
-          {/* Oriented Carved Spandrel Rosette Medallions Facing Radially Inward */}
-          {idx > 0 && idx < columns.length - 1 && (
-            <group position={[0, COL_Y_CAP + 1.08, 0]} rotation={[0, -col.theta, Math.PI / 2]}>
-              <mesh>
-                <cylinderGeometry args={[0.24, 0.24, 0.14, 20]} />
-                <meshStandardMaterial
-                  map={marbleTextures.map}
-                  normalMap={marbleTextures.normalMap}
-                  normalScale={MARBLE_NORMAL_SCALE}
-                  color={trimStone}
-                  roughness={0.62}
-                  metalness={0.16}
-                />
-              </mesh>
-              <mesh>
-                <cylinderGeometry args={[0.14, 0.15, 0.19, 16]} />
-                <meshStandardMaterial
-                  color={goldTrim}
-                  bumpMap={bronzeTextures.bumpMap}
-                  roughnessMap={bronzeTextures.roughnessMap}
-                  roughness={0.38}
-                  metalness={0.78}
-                />
-              </mesh>
-            </group>
-          )}
-        </group>
-      ))}
+      <instancedMesh
+        ref={abacusInstRef}
+        args={[abacusGeo, undefined, COL_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          color={trimStone}
+          roughness={0.68}
+          metalness={0.12}
+        />
+      </instancedMesh>
 
-      {/* 7 Spanning Semicircular Roman Arches + Keystones + 2 Suspended Votive Lanterns */}
+      <instancedMesh ref={ribInstRef} args={[ribGeo, undefined, COL_COUNT]} frustumCulled={false}>
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          color={stoneCol}
+          roughness={0.72}
+          metalness={0.12}
+        />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={rosetteStoneInstRef}
+        args={[rosetteStoneGeo, undefined, ROSETTE_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          map={marbleTextures.map}
+          normalMap={marbleTextures.normalMap}
+          normalScale={MARBLE_NORMAL_SCALE}
+          color={trimStone}
+          roughness={0.62}
+          metalness={0.16}
+        />
+      </instancedMesh>
+
+      <instancedMesh
+        ref={rosetteBronzeInstRef}
+        args={[rosetteBronzeGeo, undefined, ROSETTE_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldTrim}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          roughness={0.38}
+          metalness={0.78}
+        />
+      </instancedMesh>
+
+      {/* Instanced 7 Arch Bronze Keystones */}
+      <instancedMesh
+        ref={keystoneInstRef}
+        args={[keystoneGeo, undefined, ARCH_COUNT]}
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldTrim}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          roughness={0.4}
+          metalness={0.78}
+        />
+      </instancedMesh>
+
+      {/* 7 Semicircular Roman Arches + 2 Suspended Votive Lanterns */}
       {arches.map((arch, idx) => (
         <group
           key={`apse-arch-${idx}`}
@@ -822,35 +1189,20 @@ function CathedralBackdrop3D({
             <torusGeometry args={[arch.radius - 0.16, 0.06, 8, 22, Math.PI]} />
             <meshStandardMaterial color={trimStone} roughness={0.72} metalness={0.12} />
           </mesh>
-          <mesh position={[0, arch.radius + 0.03, 0]}>
-            <boxGeometry args={[0.21, 0.34, 0.38]} />
-            <meshStandardMaterial
-              color={goldTrim}
-              bumpMap={bronzeTextures.bumpMap}
-              roughnessMap={bronzeTextures.roughnessMap}
-              bumpScale={0.008}
-              roughness={0.4}
-              metalness={0.78}
-            />
-          </mesh>
 
-          {/* Suspended Roman Sanctuary Votive Lanterns Hanging in Bays #2 & #6 */}
           {(idx === 1 || idx === 5) && (
             <group
               ref={idx === 1 ? lanternLRef : lanternRRef}
               position={[0, arch.radius - 0.08, 0]}
             >
-              {/* Brass suspension chain */}
               <mesh position={[0, -0.675, 0]}>
                 <cylinderGeometry args={[0.012, 0.012, 1.35, 6]} />
                 <meshStandardMaterial color={goldTrim} metalness={0.86} roughness={0.34} />
               </mesh>
-              {/* Brass canopy bell */}
               <mesh position={[0, -1.36, 0]}>
                 <coneGeometry args={[0.16, 0.14, 12]} />
                 <meshStandardMaterial color={goldTrim} metalness={0.86} roughness={0.32} />
               </mesh>
-              {/* Glowing amber sanctuary lantern core */}
               <mesh position={[0, -1.52, 0]}>
                 <cylinderGeometry args={[0.1, 0.1, 0.22, 12]} />
                 <meshStandardMaterial
@@ -862,7 +1214,6 @@ function CathedralBackdrop3D({
                   roughness={0.22}
                 />
               </mesh>
-              {/* Turned brass lower finial cup */}
               <mesh position={[0, -1.66, 0]}>
                 <cylinderGeometry args={[0.14, 0.06, 0.1, 12]} />
                 <meshStandardMaterial color={goldTrim} metalness={0.86} roughness={0.32} />
@@ -907,7 +1258,6 @@ function CathedralBackdrop3D({
           </mesh>
         </group>
 
-        {/* Two whisper-soft descending stained-glass light shafts */}
         <mesh position={[-0.75, -2.5, 0.75]} rotation={[0.22, 0, -0.14]}>
           <planeGeometry args={[2.4, 5.8]} />
           <meshBasicMaterial
@@ -938,7 +1288,7 @@ function CathedralBackdrop3D({
 }
 
 /* --------------------------------------------------------------------------
-   3. Individual Sculpted PBR Marble Key-Tessera with Carved Fraunces Cap
+   3. Individual Sculpted PBR Marble Key-Tessera (Socket Collar Instanced in Altar)
    -------------------------------------------------------------------------- */
 interface StoneKeyProps {
   skill: TesseraSkill;
@@ -946,17 +1296,7 @@ interface StoneKeyProps {
   theme: ThemeMode;
   fontsReady: boolean;
   keyGeometry: THREE.BufferGeometry;
-  collarGeometry: THREE.BufferGeometry;
-  marbleTextures: {
-    map: THREE.CanvasTexture;
-    bumpMap: THREE.CanvasTexture;
-    normalMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
-  bronzeTextures: {
-    bumpMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
+  marbleTextures: MarbleTextureSet;
   isSelected: boolean;
   isHovered: boolean;
   pressPulseRef: React.RefObject<Record<string, number>>;
@@ -971,9 +1311,7 @@ function StoneKeyTile({
   theme,
   fontsReady,
   keyGeometry,
-  collarGeometry,
   marbleTextures,
-  bronzeTextures,
   isSelected,
   isHovered,
   pressPulseRef,
@@ -985,18 +1323,11 @@ function StoneKeyTile({
   const matRef = useRef<THREE.MeshPhysicalMaterial>(null);
   const jewelMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
+  // Persistent cached PBR engravings (never disposed on theme toggle -> 0ms instant switching!)
   const facePbr = useMemo(
-    () => createKeyTesseraPbrTextures(skill, theme),
+    () => createKeyTesseraPbrTextures(skill, theme, fontsReady),
     [skill, theme, fontsReady]
   );
-  useEffect(() => {
-    return () => {
-      facePbr.map.dispose();
-      facePbr.bumpMap.dispose();
-      facePbr.normalMap.dispose();
-      facePbr.roughnessMap.dispose();
-    };
-  }, [facePbr]);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.1);
@@ -1074,19 +1405,6 @@ function StoneKeyTile({
 
   return (
     <group position={position}>
-      {/* Brushed antique-gold recessed socket collar */}
-      <mesh position={[0, 0.174, 0]} geometry={collarGeometry} receiveShadow>
-        <meshStandardMaterial
-          color={rimGold}
-          bumpMap={bronzeTextures.bumpMap}
-          roughnessMap={bronzeTextures.roughnessMap}
-          bumpScale={0.008}
-          metalness={0.86}
-          roughness={0.34}
-          envMapIntensity={1.3}
-        />
-      </mesh>
-
       <group ref={keyRef} position={[0, 0.335, 0]}>
         <mesh
           castShadow
@@ -1115,7 +1433,7 @@ function StoneKeyTile({
           />
         </mesh>
 
-        {/* Satin-matte honed stone key engraving top face (glare-free Fraunces typography) */}
+        {/* Satin-matte honed stone key engraving top face */}
         <mesh position={[0, 0.163, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
           <planeGeometry args={[0.64, 0.56]} />
           <meshPhysicalMaterial
@@ -1162,22 +1480,33 @@ interface MonolithProps {
   selectedId: string | null;
   hoveredId: string | null;
   pressPulseRef: React.RefObject<Record<string, number>>;
+  metricsRef: React.RefObject<SanctuaryMetrics>;
   reducedMotionRef: React.RefObject<boolean>;
   pointerRef: React.RefObject<{ x: number; y: number }>;
-  marbleTextures: {
-    map: THREE.CanvasTexture;
-    bumpMap: THREE.CanvasTexture;
-    normalMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
-  bronzeTextures: {
-    bumpMap: THREE.CanvasTexture;
-    roughnessMap: THREE.CanvasTexture;
-  };
+  marbleTextures: MarbleTextureSet;
+  bronzeTextures: BronzeTextureSet;
   candleHaloTex: THREE.CanvasTexture;
   onHoverTessera: (id: string | null) => void;
   onSelectTessera: (id: string) => void;
 }
+
+const SPOKE_COUNT = 12;
+const LAUREL_COUNT = 12;
+const TRIGLYPH_COUNT = 12;
+const FOOT_POSITIONS: [number, number, number][] = [
+  [-2.42, -0.37, -1.8],
+  [2.42, -0.37, -1.8],
+  [-2.42, -0.37, 1.8],
+  [2.42, -0.37, 1.8],
+];
+const FINIAL_POSITIONS: [number, number, number][] = [
+  [-2.34, 0.185, -1.7],
+  [2.34, 0.185, -1.7],
+  [-2.34, 0.185, 1.7],
+  [2.34, 0.185, 1.7],
+];
+const FRONT_TRIGLYPHS = [-1.8, -1.2, -0.6, 0, 0.6, 1.2, 1.8];
+const SIDE_TRIGLYPHS = [-1.2, -0.6, 0, 0.6, 1.2];
 
 function SanctuaryMonolith({
   theme,
@@ -1186,6 +1515,7 @@ function SanctuaryMonolith({
   selectedId,
   hoveredId,
   pressPulseRef,
+  metricsRef,
   reducedMotionRef,
   pointerRef,
   marbleTextures,
@@ -1202,36 +1532,14 @@ function SanctuaryMonolith({
   const candleLightRef = useRef<THREE.PointLight>(null);
   const altarCoreLightRef = useRef<THREE.PointLight>(null);
 
-  const anchorsRef = useRef({
-    tabulaTop: 800,
-    pars1Top: 1850,
-    colophonTop: 4600,
-    isNarrow: false,
-  });
-
-  useEffect(() => {
-    const measure = () => {
-      const tabulaEl = document.getElementById('tabula-3d');
-      const pars1El = document.getElementById('pars-i');
-      const colophonEl = document.getElementById('colophon');
-      const sy = window.scrollY;
-      anchorsRef.current = {
-        tabulaTop: tabulaEl ? tabulaEl.getBoundingClientRect().top + sy : window.innerHeight * 0.95,
-        pars1Top: pars1El ? pars1El.getBoundingClientRect().top + sy : window.innerHeight * 2.2,
-        colophonTop: colophonEl
-          ? colophonEl.getBoundingClientRect().top + sy
-          : document.documentElement.scrollHeight - window.innerHeight,
-        isNarrow: window.innerWidth < 960,
-      };
-    };
-    measure();
-    window.addEventListener('resize', measure, { passive: true });
-    const timer = window.setTimeout(measure, 400);
-    return () => {
-      window.removeEventListener('resize', measure);
-      window.clearTimeout(timer);
-    };
-  }, []);
+  // Instanced static hardware refs (saving ~60 draw calls on the altar!)
+  const spokeInstRef = useRef<THREE.InstancedMesh>(null);
+  const tickInstRef = useRef<THREE.InstancedMesh>(null);
+  const footInstRef = useRef<THREE.InstancedMesh>(null);
+  const finialInstRef = useRef<THREE.InstancedMesh>(null);
+  const triglyphInstRef = useRef<THREE.InstancedMesh>(null);
+  const laurelInstRef = useRef<THREE.InstancedMesh>(null);
+  const collarInstRef = useRef<THREE.InstancedMesh>(null);
 
   // Sculpted PBR geometries (all disposed cleanly on unmount)
   const keyGeometry = useMemo(() => buildPillowyKeyGeometry(), []);
@@ -1241,69 +1549,157 @@ function SanctuaryMonolith({
   const upperPlinthGeo = useMemo(() => buildRoundedSlabGeometry(5.04, 3.74, 0.24, 0.24, 0.04), []);
   const basinGeo = useMemo(() => buildRoundedSlabGeometry(4.28, 2.88, 0.03, 0.18, 0.01), []);
   const brassFootGeo = useMemo(() => buildBrassFootGeometry(), []);
+  const finialGeo = useMemo(() => new THREE.CylinderGeometry(0.042, 0.058, 0.038, 16), []);
+  const triglyphGeo = useMemo(() => new THREE.CapsuleGeometry(0.022, 0.14, 4, 8), []);
+  const spokeGeo = useMemo(() => new THREE.BoxGeometry(6.8, 0.008, 0.012), []);
+  const tickGeo = useMemo(() => new THREE.BoxGeometry(0.14, 0.016, 0.024), []);
+  const laurelLeafGeo = useMemo(() => new THREE.SphereGeometry(0.02, 8, 8), []);
   const candlestickGeo = useMemo(() => buildCandlestickGeometry(), []);
   const candleWaxGeo = useMemo(() => buildCandleWaxGeometry(), []);
   const flameGeo = useMemo(() => buildFlameTeardropGeometry(), []);
   const waxSealGeo = useMemo(() => buildWaxSealGeometry(), []);
   const counterHousingGeo = useMemo(() => buildCounterHousingGeometry(), []);
+  const stylusGeo = useMemo(() => buildRomanStylusGeometry(), []);
+  const scrollKnobGeo = useMemo(() => buildScrollKnobGeometry(), []);
 
-  // Textures (all disposed cleanly on unmount or theme/count update)
+  // Cached textures
   const glowTexture = useMemo(() => createCathedralGlowTexture(theme), [theme]);
   const contactShadowTex = useMemo(() => createContactShadowTexture(), []);
   const candleWaxTex = useMemo(() => createCandleWaxTexture(theme), [theme]);
+  const scrollParchmentTex = useMemo(() => createScrollParchmentTexture(theme), [theme]);
   const waxSealTex = useMemo(() => createWaxSealTextures(), []);
-  const architraveTex = useMemo(() => createArchitraveTexture(theme), [theme, fontsReady]);
+  const architraveTex = useMemo(() => createArchitraveTexture(theme, fontsReady), [theme, fontsReady]);
   const counterTex = useMemo(
-    () => createCounterPlateTexture(pressCount, theme),
+    () => createCounterPlateTexture(pressCount, theme, fontsReady),
     [pressCount, theme, fontsReady]
   );
 
-  useEffect(() => () => keyGeometry.dispose(), [keyGeometry]);
-  useEffect(() => () => collarGeometry.dispose(), [collarGeometry]);
-  useEffect(() => () => lowerPlinthGeo.dispose(), [lowerPlinthGeo]);
-  useEffect(() => () => goldBandGeo.dispose(), [goldBandGeo]);
-  useEffect(() => () => upperPlinthGeo.dispose(), [upperPlinthGeo]);
-  useEffect(() => () => basinGeo.dispose(), [basinGeo]);
-  useEffect(() => () => brassFootGeo.dispose(), [brassFootGeo]);
-  useEffect(() => () => candlestickGeo.dispose(), [candlestickGeo]);
-  useEffect(() => () => candleWaxGeo.dispose(), [candleWaxGeo]);
-  useEffect(() => () => flameGeo.dispose(), [flameGeo]);
-  useEffect(() => () => waxSealGeo.dispose(), [waxSealGeo]);
-  useEffect(() => () => counterHousingGeo.dispose(), [counterHousingGeo]);
-
-  useEffect(() => () => glowTexture.dispose(), [glowTexture]);
-  useEffect(() => () => contactShadowTex.dispose(), [contactShadowTex]);
-  useEffect(() => () => candleWaxTex.dispose(), [candleWaxTex]);
-  useEffect(() => {
-    return () => {
-      waxSealTex.map.dispose();
-      waxSealTex.bumpMap.dispose();
-      waxSealTex.normalMap.dispose();
-    };
-  }, [waxSealTex]);
-  useEffect(() => {
-    return () => {
-      architraveTex.map.dispose();
-      architraveTex.bumpMap.dispose();
-    };
-  }, [architraveTex]);
-  useEffect(() => {
-    return () => {
-      counterTex.map.dispose();
-      counterTex.bumpMap.dispose();
-    };
-  }, [counterTex]);
-
-  const spokeAngles = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => (i / 12) * Math.PI * 2),
-    []
+  useEffect(
+    () => () => {
+      keyGeometry.dispose();
+      collarGeometry.dispose();
+      lowerPlinthGeo.dispose();
+      goldBandGeo.dispose();
+      upperPlinthGeo.dispose();
+      basinGeo.dispose();
+      brassFootGeo.dispose();
+      finialGeo.dispose();
+      triglyphGeo.dispose();
+      spokeGeo.dispose();
+      tickGeo.dispose();
+      laurelLeafGeo.dispose();
+      candlestickGeo.dispose();
+      candleWaxGeo.dispose();
+      flameGeo.dispose();
+      waxSealGeo.dispose();
+      counterHousingGeo.dispose();
+      stylusGeo.dispose();
+      scrollKnobGeo.dispose();
+    },
+    [
+      keyGeometry,
+      collarGeometry,
+      lowerPlinthGeo,
+      goldBandGeo,
+      upperPlinthGeo,
+      basinGeo,
+      brassFootGeo,
+      finialGeo,
+      triglyphGeo,
+      spokeGeo,
+      tickGeo,
+      laurelLeafGeo,
+      candlestickGeo,
+      candleWaxGeo,
+      flameGeo,
+      waxSealGeo,
+      counterHousingGeo,
+      stylusGeo,
+      scrollKnobGeo,
+    ]
   );
-  const laurelAngles = useMemo(
-    () => Array.from({ length: 12 }, (_, i) => (i / 12) * Math.PI * 2),
-    []
-  );
-  const frontTriglyphs = useMemo(() => [-1.8, -1.2, -0.6, 0, 0.6, 1.2, 1.8], []);
-  const sideTriglyphs = useMemo(() => [-1.2, -0.6, 0, 0.6, 1.2], []);
+
+  // Populate static InstancedMesh transforms on mount
+  useEffect(() => {
+    for (let i = 0; i < SPOKE_COUNT; i++) {
+      const ang = (i / SPOKE_COUNT) * Math.PI * 2;
+      SCRATCH_OBJ.position.set(0, 0, 0);
+      SCRATCH_OBJ.rotation.set(0, ang, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      spokeInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+
+      SCRATCH_OBJ.position.set(Math.cos(ang) * 2.38, 0, Math.sin(ang) * 2.38);
+      SCRATCH_OBJ.rotation.set(0, -ang, 0);
+      SCRATCH_OBJ.updateMatrix();
+      tickInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+    }
+
+    FOOT_POSITIONS.forEach(([fx, fy, fz], i) => {
+      SCRATCH_OBJ.position.set(fx, fy, fz);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      footInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+    });
+
+    FINIAL_POSITIONS.forEach(([fx, fy, fz], i) => {
+      SCRATCH_OBJ.position.set(fx, fy, fz);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      finialInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+    });
+
+    let tIdx = 0;
+    FRONT_TRIGLYPHS.forEach((tx) => {
+      SCRATCH_OBJ.position.set(tx, 0.05, 1.87);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      triglyphInstRef.current?.setMatrixAt(tIdx++, SCRATCH_OBJ.matrix);
+    });
+    SIDE_TRIGLYPHS.forEach((tz) => {
+      SCRATCH_OBJ.position.set(-2.52, 0.05, tz);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      triglyphInstRef.current?.setMatrixAt(tIdx++, SCRATCH_OBJ.matrix);
+    });
+
+    for (let i = 0; i < LAUREL_COUNT; i++) {
+      const ang = (i / LAUREL_COUNT) * Math.PI * 2;
+      SCRATCH_OBJ.position.set(Math.cos(ang) * 0.245, Math.sin(ang) * 0.245, 0.02);
+      SCRATCH_OBJ.rotation.set(0, 0, ang + 0.4);
+      SCRATCH_OBJ.scale.set(1.8, 0.78, 0.55);
+      SCRATCH_OBJ.updateMatrix();
+      laurelInstRef.current?.setMatrixAt(i, SCRATCH_OBJ.matrix);
+    }
+
+    TESSERAE.forEach((_, idx) => {
+      const col = idx % 4;
+      const row = Math.floor(idx / 4);
+      const tx = (col - 1.5) * 1.02;
+      const tz = -0.88 + row * 0.9;
+      SCRATCH_OBJ.position.set(tx, 0.174, tz);
+      SCRATCH_OBJ.rotation.set(0, 0, 0);
+      SCRATCH_OBJ.scale.setScalar(1);
+      SCRATCH_OBJ.updateMatrix();
+      collarInstRef.current?.setMatrixAt(idx, SCRATCH_OBJ.matrix);
+    });
+
+    [
+      spokeInstRef,
+      tickInstRef,
+      footInstRef,
+      finialInstRef,
+      triglyphInstRef,
+      laurelInstRef,
+      collarInstRef,
+    ].forEach((ref) => {
+      if (ref.current) ref.current.instanceMatrix.needsUpdate = true;
+    });
+  }, []);
 
   // Scroll-choreographed isometric movement + calm candle flame breathing
   useFrame((state, delta) => {
@@ -1333,7 +1729,6 @@ function SanctuaryMonolith({
       }
     }
 
-    // Track latest key press impulse + active liturgical layer underglow
     let latestSkillIdx = -1;
     let latestPressedAt = 0;
     const pulses = pressPulseRef.current;
@@ -1363,8 +1758,8 @@ function SanctuaryMonolith({
       );
     }
 
-    const { tabulaTop, pars1Top, colophonTop, isNarrow } = anchorsRef.current;
-    const vh = Math.max(1, window.innerHeight);
+    const { tabulaTop, pars1Top, colophonTop, isNarrow, isCompactDesktop, isMobile, vh } =
+      metricsRef.current;
     const scrollCenter = window.scrollY + vh * 0.5;
 
     const tTabula = THREE.MathUtils.smoothstep(
@@ -1383,15 +1778,23 @@ function SanctuaryMonolith({
       colophonTop + vh * 0.12
     );
 
-    const p0Pos = isNarrow ? screenOffset(0, -1.65, -0.5) : screenOffset(1.88, -0.18, 0);
+    const p0Pos = isNarrow
+      ? screenOffset(isMobile ? -0.16 : 0, -1.65, isMobile ? -0.95 : -0.5)
+      : isCompactDesktop
+        ? screenOffset(2.38, -0.22, -0.45)
+        : screenOffset(2.26, -0.2, 0);
     const p0rx = 0.04;
     const p0ry = isNarrow ? -0.62 : -0.48;
-    const p0s = isNarrow ? 0.52 : 0.78;
+    const p0s = isMobile ? 0.44 : isNarrow ? 0.52 : isCompactDesktop ? 0.63 : 0.74;
 
-    const p1Pos = screenOffset(0, isNarrow ? -0.06 : -0.66, isNarrow ? -0.65 : 0.35);
+    const p1Pos = isMobile
+      ? screenOffset(-0.16, -0.1, -1.1)
+      : isNarrow
+        ? screenOffset(0, -0.08, -0.65)
+        : screenOffset(0, -0.66, 0.35);
     const p1rx = 0.08;
     const p1ry = -0.62;
-    const p1s = isNarrow ? 0.56 : 0.94;
+    const p1s = isMobile ? 0.44 : isNarrow ? 0.56 : 0.92;
 
     const p2Pos = screenOffset(0, -0.25, -4.8);
     const p2rx = 0.24;
@@ -1446,14 +1849,14 @@ function SanctuaryMonolith({
       return;
     }
 
-    monolith.position.x = THREE.MathUtils.damp(monolith.position.x, tx, 2.8, dt);
-    monolith.position.y = THREE.MathUtils.damp(monolith.position.y, ty, 2.8, dt);
-    monolith.position.z = THREE.MathUtils.damp(monolith.position.z, tz, 2.8, dt);
-    monolith.rotation.x = THREE.MathUtils.damp(monolith.rotation.x, trx, 2.8, dt);
-    monolith.rotation.y = THREE.MathUtils.damp(monolith.rotation.y, tryRot, 2.8, dt);
+    monolith.position.x = THREE.MathUtils.damp(monolith.position.x, tx, 3.2, dt);
+    monolith.position.y = THREE.MathUtils.damp(monolith.position.y, ty, 3.2, dt);
+    monolith.position.z = THREE.MathUtils.damp(monolith.position.z, tz, 3.2, dt);
+    monolith.rotation.x = THREE.MathUtils.damp(monolith.rotation.x, trx, 3.2, dt);
+    monolith.rotation.y = THREE.MathUtils.damp(monolith.rotation.y, tryRot, 3.2, dt);
     monolith.rotation.z = THREE.MathUtils.damp(monolith.rotation.z, trzImpulse, 10, dt);
 
-    const nextScale = THREE.MathUtils.damp(monolith.scale.x, ts, 2.8, dt);
+    const nextScale = THREE.MathUtils.damp(monolith.scale.x, ts, 3.2, dt);
     monolith.scale.setScalar(nextScale);
   });
 
@@ -1465,9 +1868,9 @@ function SanctuaryMonolith({
   return (
     <group
       ref={monolithRef}
-      position={screenOffset(1.88, -0.18, 0)}
+      position={screenOffset(2.26, -0.2, 0)}
       rotation={[0.04, -0.48, 0]}
-      scale={0.78}
+      scale={0.74}
     >
       {/* Candlelight radial glow halo & Grounded Plinth Contact AO Shadow */}
       <mesh position={[0, -0.48, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -1485,7 +1888,7 @@ function SanctuaryMonolith({
         />
       </mesh>
 
-      {/* Floor Astrolabe Rings */}
+      {/* Floor Astrolabe Rings (Instanced Spokes & Ticks) */}
       <group ref={outerHaloRef} position={[0, -0.46, 0]}>
         <mesh rotation={[-Math.PI / 2, 0, 0]}>
           <torusGeometry args={[3.48, 0.016, 8, 64]} />
@@ -1497,18 +1900,19 @@ function SanctuaryMonolith({
             roughness={0.32}
           />
         </mesh>
-        {spokeAngles.map((ang) => (
-          <mesh key={ang} rotation={[0, ang, 0]}>
-            <boxGeometry args={[6.8, 0.008, 0.012]} />
-            <meshStandardMaterial
-              color={goldColor}
-              transparent
-              opacity={0.14}
-              metalness={0.8}
-              roughness={0.34}
-            />
-          </mesh>
-        ))}
+        <instancedMesh
+          ref={spokeInstRef}
+          args={[spokeGeo, undefined, SPOKE_COUNT]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            color={goldColor}
+            transparent
+            opacity={0.14}
+            metalness={0.8}
+            roughness={0.34}
+          />
+        </instancedMesh>
       </group>
 
       <group ref={innerHaloRef} position={[0, -0.45, 0]}>
@@ -1522,37 +1926,32 @@ function SanctuaryMonolith({
             roughness={0.32}
           />
         </mesh>
-        {spokeAngles.map((ang) => (
-          <mesh
-            key={`tick-${ang}`}
-            position={[Math.cos(ang) * 2.38, 0, Math.sin(ang) * 2.38]}
-            rotation={[0, -ang, 0]}
-          >
-            <boxGeometry args={[0.14, 0.016, 0.024]} />
-            <meshStandardMaterial color={goldColor} transparent opacity={0.34} metalness={0.82} />
-          </mesh>
-        ))}
+        <instancedMesh
+          ref={tickInstRef}
+          args={[tickGeo, undefined, SPOKE_COUNT]}
+          frustumCulled={false}
+        >
+          <meshStandardMaterial color={goldColor} transparent opacity={0.34} metalness={0.82} />
+        </instancedMesh>
       </group>
 
-      {/* 4 Sculpted Classical Stepped Brass Reliquary Feet Supporting the Altar */}
-      {[
-        [-2.42, -0.37, -1.8],
-        [2.42, -0.37, -1.8],
-        [-2.42, -0.37, 1.8],
-        [2.42, -0.37, 1.8],
-      ].map(([fx, fy, fz], idx) => (
-        <mesh key={`brass-foot-${idx}`} position={[fx, fy, fz]} geometry={brassFootGeo} castShadow>
-          <meshStandardMaterial
-            color={goldColor}
-            bumpMap={bronzeTextures.bumpMap}
-            roughnessMap={bronzeTextures.roughnessMap}
-            bumpScale={0.008}
-            metalness={0.88}
-            roughness={0.34}
-            envMapIntensity={1.35}
-          />
-        </mesh>
-      ))}
+      {/* 4 Instanced Sculpted Classical Stepped Brass Reliquary Feet */}
+      <instancedMesh
+        ref={footInstRef}
+        args={[brassFootGeo, undefined, FOOT_POSITIONS.length]}
+        castShadow
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldColor}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          metalness={0.88}
+          roughness={0.34}
+          envMapIntensity={1.35}
+        />
+      </instancedMesh>
 
       {/* Stepped Beveled PBR Marble Plinth Tiers with Clearcoat & Tangent-Space Normals */}
       <mesh position={[0, -0.18, 0]} geometry={lowerPlinthGeo} castShadow receiveShadow>
@@ -1602,58 +2001,44 @@ function SanctuaryMonolith({
         />
       </mesh>
 
-      {/* Rounded Brushed-Bronze Roman Triglyphs Along Front & Left Fascia */}
-      {frontTriglyphs.map((tx) => (
-        <mesh key={`ft-${tx}`} position={[tx, 0.05, 1.87]} castShadow>
-          <capsuleGeometry args={[0.022, 0.14, 4, 8]} />
-          <meshStandardMaterial
-            color={goldColor}
-            bumpMap={bronzeTextures.bumpMap}
-            roughnessMap={bronzeTextures.roughnessMap}
-            bumpScale={0.008}
-            metalness={0.88}
-            roughness={0.34}
-            envMapIntensity={1.35}
-          />
-        </mesh>
-      ))}
-      {sideTriglyphs.map((tz) => (
-        <mesh key={`st-${tz}`} position={[-2.52, 0.05, tz]} castShadow>
-          <capsuleGeometry args={[0.022, 0.14, 4, 8]} />
-          <meshStandardMaterial
-            color={goldColor}
-            bumpMap={bronzeTextures.bumpMap}
-            roughnessMap={bronzeTextures.roughnessMap}
-            bumpScale={0.008}
-            metalness={0.88}
-            roughness={0.34}
-            envMapIntensity={1.35}
-          />
-        </mesh>
-      ))}
+      {/* 12 Instanced Brushed-Bronze Roman Triglyphs Along Front & Left Fascia */}
+      <instancedMesh
+        ref={triglyphInstRef}
+        args={[triglyphGeo, undefined, TRIGLYPH_COUNT]}
+        castShadow
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldColor}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          metalness={0.88}
+          roughness={0.34}
+          envMapIntensity={1.35}
+        />
+      </instancedMesh>
 
-      {/* 4 Corner Brushed-Bronze Finial Studs */}
-      {[
-        [-2.34, 0.185, -1.7],
-        [2.34, 0.185, -1.7],
-        [-2.34, 0.185, 1.7],
-        [2.34, 0.185, 1.7],
-      ].map(([fx, fy, fz], idx) => (
-        <mesh key={`finial-${idx}`} position={[fx, fy, fz]} castShadow>
-          <cylinderGeometry args={[0.042, 0.058, 0.038, 16]} />
-          <meshStandardMaterial
-            color={goldColor}
-            bumpMap={bronzeTextures.bumpMap}
-            roughnessMap={bronzeTextures.roughnessMap}
-            bumpScale={0.008}
-            metalness={0.88}
-            roughness={0.3}
-            envMapIntensity={1.35}
-          />
-        </mesh>
-      ))}
+      {/* 4 Instanced Corner Brushed-Bronze Finial Studs */}
+      <instancedMesh
+        ref={finialInstRef}
+        args={[finialGeo, undefined, FINIAL_POSITIONS.length]}
+        castShadow
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldColor}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          metalness={0.88}
+          roughness={0.3}
+          envMapIntensity={1.35}
+        />
+      </instancedMesh>
 
-      {/* Two Realistic Roman Brass Votive Candles (Turned Chalice, Subsurface Beeswax & Teardrop Flame) */}
+      {/* Two Realistic Roman Brass Votive Candles + Rising Warm Incense Smoke Wisps */}
+      <IncenseSmokeField theme={theme} reducedMotionRef={reducedMotionRef} />
       <pointLight
         ref={candleLightRef}
         position={[0, 1.25, -1.7]}
@@ -1667,7 +2052,6 @@ function SanctuaryMonolith({
         { pos: [2.64, -0.075, -1.94] as [number, number, number], ref: flameRRef },
       ].map(({ pos, ref }, idx) => (
         <group key={`votive-${idx}`} position={pos}>
-          {/* Turned Classical Brass Candlestick Chalice */}
           <mesh geometry={candlestickGeo} castShadow>
             <meshStandardMaterial
               color={goldColor}
@@ -1680,7 +2064,6 @@ function SanctuaryMonolith({
             />
           </mesh>
 
-          {/* Cupped Translucent Glowing Beeswax Pillar */}
           <mesh geometry={candleWaxGeo} castShadow>
             <meshStandardMaterial
               map={candleWaxTex}
@@ -1692,13 +2075,11 @@ function SanctuaryMonolith({
             />
           </mesh>
 
-          {/* Dark Braided Wick Inside Molten Pool */}
           <mesh position={[0, 0.358, 0]}>
             <cylinderGeometry args={[0.004, 0.005, 0.028, 8]} />
             <meshStandardMaterial color="#1B1714" roughness={0.95} />
           </mesh>
 
-          {/* Layered Teardrop Flame + Camera-Facing Luminous Halo */}
           <group ref={ref} position={[0, 0.368, 0]}>
             <mesh geometry={flameGeo}>
               <meshStandardMaterial
@@ -1750,7 +2131,7 @@ function SanctuaryMonolith({
         />
       </mesh>
 
-      {/* Carved Brushed-Bronze Reliquary Grid Coffer Partition Bars (3 vertical x 2 horizontal) */}
+      {/* Carved Brushed-Bronze Reliquary Grid Coffer Partition Bars */}
       {[-1.02, 0, 1.02].map((gx) => (
         <mesh key={`grid-v-${gx}`} position={[gx, 0.18, 0.02]} rotation={[Math.PI / 2, 0, 0]}>
           <capsuleGeometry args={[0.013, 2.74, 4, 8]} />
@@ -1839,7 +2220,7 @@ function SanctuaryMonolith({
         />
       </mesh>
 
-      {/* Sculpted 3D Brushed-Bronze Chi-Rho (☧) Medallion with Elliptical Laurel Wreath — Back-Left */}
+      {/* Sculpted 3D Brushed-Bronze Chi-Rho (☧) Medallion with Instanced Laurel Wreath — Back-Left */}
       <group position={[-1.92, 0.2, -1.64]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
           <cylinderGeometry args={[0.21, 0.24, 0.06, 24]} />
@@ -1860,23 +2241,19 @@ function SanctuaryMonolith({
             envMapIntensity={1.35}
           />
         </mesh>
-        {laurelAngles.map((ang) => (
-          <mesh
-            key={`leaf-${ang}`}
-            position={[Math.cos(ang) * 0.245, Math.sin(ang) * 0.245, 0.02]}
-            rotation={[0, 0, ang + 0.4]}
-            scale={[1.8, 0.78, 0.55]}
-            castShadow
-          >
-            <sphereGeometry args={[0.02, 8, 8]} />
-            <meshStandardMaterial
-              color={goldColor}
-              metalness={0.88}
-              roughness={0.28}
-              envMapIntensity={1.35}
-            />
-          </mesh>
-        ))}
+        <instancedMesh
+          ref={laurelInstRef}
+          args={[laurelLeafGeo, undefined, LAUREL_COUNT]}
+          castShadow
+          frustumCulled={false}
+        >
+          <meshStandardMaterial
+            color={goldColor}
+            metalness={0.88}
+            roughness={0.28}
+            envMapIntensity={1.35}
+          />
+        </instancedMesh>
         <mesh position={[0, 0, 0.045]} castShadow>
           <boxGeometry args={[0.032, 0.28, 0.03]} />
           <meshStandardMaterial color={goldColor} metalness={0.88} roughness={0.28} />
@@ -1908,7 +2285,6 @@ function SanctuaryMonolith({
             envMapIntensity={1.35}
           />
         </mesh>
-        {/* Physically Lit Carved Bronze Dial */}
         <mesh position={[0, 0, 0.082]}>
           <planeGeometry args={[0.66, 0.28]} />
           <meshStandardMaterial
@@ -1922,7 +2298,6 @@ function SanctuaryMonolith({
             metalness={0.22}
           />
         </mesh>
-        {/* Crisp Protective Crystal Glass Pane Over Dial */}
         <mesh position={[0, 0, 0.089]}>
           <planeGeometry args={[0.66, 0.28]} />
           <meshPhysicalMaterial
@@ -1954,6 +2329,60 @@ function SanctuaryMonolith({
         />
       </mesh>
 
+      {/* Rolled Vellum Manuscript Scroll (Volumen) & Turned Bronze Stylus (Graphium) — Front Center Apron */}
+      <group position={[-0.08, 0.224, 1.65]} rotation={[0, 0.055, 0]}>
+        {/* Rolled parchment body */}
+        <mesh rotation={[0, 0, Math.PI / 2]} castShadow receiveShadow>
+          <cylinderGeometry args={[0.054, 0.054, 1.18, 24]} />
+          <meshStandardMaterial
+            map={scrollParchmentTex}
+            roughness={0.78}
+            metalness={0.04}
+          />
+        </mesh>
+        {/* Turned bronze umbilical end knobs */}
+        <mesh position={[-0.59, 0, 0]} rotation={[0, 0, Math.PI / 2]} geometry={scrollKnobGeo} castShadow>
+          <meshStandardMaterial
+            color={goldColor}
+            bumpMap={bronzeTextures.bumpMap}
+            roughnessMap={bronzeTextures.roughnessMap}
+            metalness={0.88}
+            roughness={0.3}
+          />
+        </mesh>
+        <mesh position={[0.59, 0, 0]} rotation={[0, 0, -Math.PI / 2]} geometry={scrollKnobGeo} castShadow>
+          <meshStandardMaterial
+            color={goldColor}
+            bumpMap={bronzeTextures.bumpMap}
+            roughnessMap={bronzeTextures.roughnessMap}
+            metalness={0.88}
+            roughness={0.3}
+          />
+        </mesh>
+        {/* Brass signet ring clasp over crimson ribbon */}
+        <mesh rotation={[0, Math.PI / 2, 0]} castShadow>
+          <torusGeometry args={[0.057, 0.008, 8, 24]} />
+          <meshStandardMaterial color={goldColor} metalness={0.9} roughness={0.26} />
+        </mesh>
+      </group>
+
+      {/* Resting Turned Roman Bronze Stylus (Graphium) Beside the Scroll */}
+      <mesh
+        position={[0.18, 0.188, 1.78]}
+        rotation={[0, -0.16, 0]}
+        geometry={stylusGeo}
+        castShadow
+      >
+        <meshStandardMaterial
+          color={goldColor}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          metalness={0.9}
+          roughness={0.26}
+          envMapIntensity={1.4}
+        />
+      </mesh>
+
       {/* Subtle Gilded Compass / Cross Medallion — Front-Right Apron */}
       <group position={[1.92, 0.19, 1.65]} rotation={[-Math.PI / 2, 0, 0]}>
         <mesh rotation={[Math.PI / 2, 0, 0]} receiveShadow>
@@ -1980,6 +2409,24 @@ function SanctuaryMonolith({
         </mesh>
       </group>
 
+      {/* 12 Instanced Recessed Brushed-Bronze Socket Collars */}
+      <instancedMesh
+        ref={collarInstRef}
+        args={[collarGeometry, undefined, TESSERAE.length]}
+        receiveShadow
+        frustumCulled={false}
+      >
+        <meshStandardMaterial
+          color={goldColor}
+          bumpMap={bronzeTextures.bumpMap}
+          roughnessMap={bronzeTextures.roughnessMap}
+          bumpScale={0.008}
+          metalness={0.86}
+          roughness={0.34}
+          envMapIntensity={1.3}
+        />
+      </instancedMesh>
+
       {/* 12 Interactive Pillowy PBR Stone Key-Tesserae */}
       {TESSERAE.map((skill, idx) => {
         const col = idx % 4;
@@ -1995,9 +2442,7 @@ function SanctuaryMonolith({
             theme={theme}
             fontsReady={fontsReady}
             keyGeometry={keyGeometry}
-            collarGeometry={collarGeometry}
             marbleTextures={marbleTextures}
-            bronzeTextures={bronzeTextures}
             isSelected={selectedId === skill.id}
             isHovered={hoveredId === skill.id}
             pressPulseRef={pressPulseRef}
@@ -2021,6 +2466,7 @@ function SanctuaryScene({
   selectedId,
   hoveredId,
   pressPulseRef,
+  metricsRef,
   reducedMotionRef,
   pointerRef,
   onHoverTessera,
@@ -2031,28 +2477,19 @@ function SanctuaryScene({
   const sharedCandleHalo = useMemo(() => createCandleHaloTexture(), []);
 
   useEffect(() => {
-    return () => {
-      sharedMarble.map.dispose();
-      sharedMarble.bumpMap.dispose();
-      sharedMarble.normalMap.dispose();
-      sharedMarble.roughnessMap.dispose();
-    };
-  }, [sharedMarble]);
-
-  useEffect(() => {
-    return () => {
-      sharedBronze.bumpMap.dispose();
-      sharedBronze.roughnessMap.dispose();
-    };
-  }, [sharedBronze]);
-
-  useEffect(() => () => sharedCandleHalo.dispose(), [sharedCandleHalo]);
+    return warmAlternateThemeTextures(theme, fontsReady, TESSERAE);
+  }, [theme, fontsReady]);
 
   const fogColor = theme === 'dark' ? '#111727' : '#F6F0E2';
 
   return (
     <>
       <CathedralEnvironment theme={theme} />
+      <SanctuaryCameraRig
+        metricsRef={metricsRef}
+        pointerRef={pointerRef}
+        reducedMotionRef={reducedMotionRef}
+      />
       <fog attach="fog" args={[fogColor, 14, 25.5]} />
 
       <ambientLight intensity={theme === 'dark' ? 0.36 : 0.62} />
@@ -2089,10 +2526,15 @@ function SanctuaryScene({
         marbleTextures={sharedMarble}
         bronzeTextures={sharedBronze}
         candleHaloTex={sharedCandleHalo}
+        metricsRef={metricsRef}
         reducedMotionRef={reducedMotionRef}
       />
 
-      <DistantMoteField theme={theme} reducedMotionRef={reducedMotionRef} />
+      <DistantMoteField
+        theme={theme}
+        metricsRef={metricsRef}
+        reducedMotionRef={reducedMotionRef}
+      />
 
       <SanctuaryMonolith
         theme={theme}
@@ -2101,6 +2543,7 @@ function SanctuaryScene({
         selectedId={selectedId}
         hoveredId={hoveredId}
         pressPulseRef={pressPulseRef}
+        metricsRef={metricsRef}
         reducedMotionRef={reducedMotionRef}
         pointerRef={pointerRef}
         marbleTextures={sharedMarble}
@@ -2114,7 +2557,7 @@ function SanctuaryScene({
 }
 
 /* --------------------------------------------------------------------------
-   6. Exported R3F Canvas Wrapper
+   6. Exported R3F Canvas Wrapper (Shared ResizeObserver Metrics — Zero Reflow)
    -------------------------------------------------------------------------- */
 interface CodexSanctuary3DProps {
   theme: ThemeMode;
@@ -2139,6 +2582,16 @@ export function CodexSanctuary3D({
 }: CodexSanctuary3DProps) {
   const reducedMotionRef = useRef(false);
   const pointerRef = useRef({ x: 0, y: 0 });
+  const metricsRef = useRef<SanctuaryMetrics>({
+    maxScroll: 4000,
+    vh: 900,
+    tabulaTop: 850,
+    pars1Top: 1900,
+    colophonTop: 4600,
+    isNarrow: false,
+    isCompactDesktop: false,
+    isMobile: false,
+  });
   const [webglDisabled, setWebglDisabled] = useState(false);
   const [fontsReady, setFontsReady] = useState(false);
 
@@ -2151,6 +2604,36 @@ export function CodexSanctuary3D({
     } else {
       setFontsReady(true);
     }
+
+    const measure = () => {
+      const vh = Math.max(1, window.innerHeight);
+      const docH = Math.max(vh + 1, document.documentElement.scrollHeight);
+      const sy = window.scrollY;
+      const tabulaEl = document.getElementById('tabula-3d');
+      const pars1El = document.getElementById('pars-i');
+      const colophonEl = document.getElementById('colophon');
+
+      const vw = window.innerWidth;
+      metricsRef.current = {
+        maxScroll: Math.max(1, docH - vh),
+        vh,
+        tabulaTop: tabulaEl ? tabulaEl.getBoundingClientRect().top + sy : vh * 0.95,
+        pars1Top: pars1El ? pars1El.getBoundingClientRect().top + sy : vh * 2.2,
+        colophonTop: colophonEl ? colophonEl.getBoundingClientRect().top + sy : docH - vh,
+        isNarrow: vw < 960,
+        isCompactDesktop: vw >= 960 && vw < 1260,
+        isMobile: vw < 640,
+      };
+    };
+
+    measure();
+    window.addEventListener('resize', measure, { passive: true });
+    let ro: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => measure());
+      ro.observe(document.body);
+    }
+    const settleTimer = window.setTimeout(measure, 450);
 
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
     reducedMotionRef.current = mq.matches;
@@ -2181,6 +2664,9 @@ export function CodexSanctuary3D({
 
     return () => {
       alive = false;
+      window.removeEventListener('resize', measure);
+      ro?.disconnect();
+      window.clearTimeout(settleTimer);
       mq.removeEventListener('change', onChange);
       window.removeEventListener('pointermove', onPointerMove);
     };
@@ -2208,7 +2694,18 @@ export function CodexSanctuary3D({
           window.__CODEX_WEBGL_STATS__ = () => ({
             drawCalls: gl.info.render.calls,
             triangles: gl.info.render.triangles,
-            instances: MOTE_COUNT,
+            instances:
+              MOTE_COUNT +
+              WISP_COUNT +
+              COL_COUNT * 7 +
+              ROSETTE_COUNT * 2 +
+              ARCH_COUNT +
+              SPOKE_COUNT * 2 +
+              FOOT_POSITIONS.length +
+              FINIAL_POSITIONS.length +
+              TRIGLYPH_COUNT +
+              LAUREL_COUNT +
+              TESSERAE.length,
           });
           gl.domElement.addEventListener(
             'webglcontextlost',
@@ -2228,6 +2725,7 @@ export function CodexSanctuary3D({
           selectedId={selectedId}
           hoveredId={hoveredId}
           pressPulseRef={pressPulseRef}
+          metricsRef={metricsRef}
           reducedMotionRef={reducedMotionRef}
           pointerRef={pointerRef}
           onHoverTessera={onHoverTessera}
